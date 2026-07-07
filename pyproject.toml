@@ -1,0 +1,38 @@
+[project]
+name = "omniscreen-ai"
+version = "0.1.0"
+description = "Multi-modal high-throughput drug screening platform for PD-L1"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "OmniScreen-AI Contributors" }]
+keywords = ["drug-discovery", "AIDD", "PD-L1", "screening", "OpenMM"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scikit-learn>=1.3",
+    "rdkit>=2023.9.1",
+    "pydantic>=2.0",
+    "matplotlib>=3.7",
+    "seaborn>=0.13",
+    "biopython>=1.81",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+md = ["openmm>=8.0", "mdtraj>=1.9"]
+viz = ["plotly>=5.18"]
+dev = ["ipykernel>=6.25", "nbformat>=5.9"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
