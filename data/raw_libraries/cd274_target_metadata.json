@@ -1,0 +1,10 @@
+{
+  "accession": "NM_014143",
+  "gene": "CD274",
+  "product": "PD-L1",
+  "mrna_length": 3634,
+  "sirna_length": 21,
+  "window_step": 1,
+  "receptor_pdb": "/content/OmniScreen-AI/data/receptor/4ZQK.pdb",
+  "notes": "3'UTR \u4e0e CDS \u533a\u57df\u5747\u53ef\u4f5c\u4e3a siRNA \u9776\u5411\uff1b\u672c\u6d41\u6c34\u7ebf\u5bf9\u5168 mRNA \u6ed1\u52a8\u7a97\u53e3\u626b\u63cf"
+}
