@@ -88,7 +88,7 @@ flowchart LR
 | 7c | `fig7c_mrna_target_map.png` | `sirna_candidates.csv` | Module 2 |
 | 7d | `fig7d_offtarget_manhattan.png` | `sirna_offtarget.sam` | [Module 3](#module-3--全基因组脱靶过滤bowtie2--chr22-演示) |
 | 7e | `fig7e_offtarget_funnel.png` | Module 2 + 3 汇总 | Module 3 |
-| 8a | `fig8a_rna_structure.png` | Top-5 `offtarget_filtered.csv` | Module 2 / 6 |
+| 8a | `fig8a_rna_structure.png` | Top-5 guide–target 杂交双链 | Module 5 / 6 |
 | 8b | `fig8b_thermo_profile.png` | `sirna_candidates.csv`（窗口 MFE） | Module 6 |
 | NA-AF3 | `fig_na_af3_iptm_ranking.png` | `af3_na_metrics.csv` | [Module 4](#module-4--alphafold-3-蛋白-核酸复合物验证) |
 | NA-AF3 | `fig_na_af3_complex.html` / `.png` | Top1 CIF | Module 4 |
@@ -582,16 +582,16 @@ antisense
 
 #### 结果解读（Module 6 综合可视化）
 
-##### 图 8a — Top-5 siRNA 二级结构示意
+##### 图 8a — Top-5 siRNA–mRNA 杂交双链
 
-![图 8a：RNA 结构](../../data/screened_results/figures/fig8a_rna_structure.png)
+![图 8a：siRNA–mRNA 双链](../../data/screened_results/figures/fig8a_rna_structure.png)
 
 | 项目 | 说明 |
 |------|------|
-| **图意** | 每条 Top 候选展示靶向序列（RNA 字母）与 ViennaRNA dot-bracket 二级结构 |
-| **读图要点** | `.` 表示未配对碱基；`(` `)` 表示配对；结构过于折叠可能降低 RISC 加载效率 |
-| **本数据结论** | Top-5（如 `CD274_2332_2352`）靶向链均为 **全 unpaired**（`.....................`），MFE ≈ 0，可及性较好 |
-| **含义与局限** | 文本示意图非 VARNA/forna 渲染；全 unpaired 是短窗口常见现象，不代表杂交后结构 |
+| **图意** | Top-5 脱靶安全候选的 **guide–target 杂交双链**：上排 guide（5′→3′），下排靶序列（3′→5′）；碱基按 A/U/G/C 着色，竖线表示配对 |
+| **读图要点** | 实线 = Watson–Crick / G·U 配对；虚线 = 错配；标题给出 efficacy、脱靶命中与杂交 ΔG |
+| **本数据结论** | Top-5 几乎为全配对双链，杂交 ΔG 约 −31 至 −36 kcal/mol（见 Module 5） |
+| **含义与局限** | 短 21 nt 发夹多为 unpaired，故本图展示 **杂交** 而非分子内二级结构；示意图非实验晶体结构 |
 
 ##### 图 8b — mRNA 位置热力学轮廓
 
