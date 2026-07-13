@@ -444,6 +444,8 @@ ligand + receptor  →  AutoDock Vina  →  vina_score + out.pdbqt
 | **本数据结论** | Top 候选在 LogP / MW 上分布合理，CHEMBL19019_div 兼具较好得分与适中理化性质 |
 | **含义与局限** | 3 点样本过少，无法建立可靠 QSAR；扩展库后可做相关性分析 |
 
+> **3D Binding Pose**：Top-1 配体在口袋中的结构图见 Module 6 [图 — 3D Binding Pose](#图--3d-binding-pose)（`fig_3d_binding_pose.png` / `.html`）。
+
 ---
 
 ### Module 4 — OpenMM 分子动力学
@@ -664,7 +666,8 @@ flowchart TB
 | 4a–4d | `fig4a_*` … `fig4d_*` | Module 3 → 解读见 [Module 3](#module-3--高通量分子对接-autodock-vina) |
 | 扩展 | `fig_ext_chem_tsne_umap.png` | Module 2+3 融合 |
 | 结构 | `fig_top5_*`, `fig_ligand_grid_2d.png` | Module 3 Top 5 |
-| 3D | `fig_binding_pocket_schematic.png`, `fig_3d_binding_pose.*` | Module 1+3 |
+| 3D Binding Pose | `fig_3d_binding_pose.*` | Module 3 Top-1 / Module 4 复合物 → 见下方 [图 — 3D Binding Pose](#图--3d-binding-pose) |
+| 口袋示意 | `fig_binding_pocket_schematic.png` | Module 1+3 |
 | SM-MD | `fig_sm_md_rmsd.png` | Module 4 → 见 [Module 4](#结果解读module-4-可视化) |
 | SM-GBSA | `fig_sm_mmpbsa_*.png` | Module 5 → 见 [Module 5](#结果解读module-5-可视化) |
 
@@ -709,15 +712,15 @@ flowchart TB
 | **图意** | 受体 Cα 投影 + 共晶配体 8HW 位置，标示对接搜索空间 |
 | **含义** | 对接盒子中心对齐 8HW，确保搜索 PD-L1 天然结合沟槽 |
 
-##### 3D 结合姿态
+##### 图 — 3D Binding Pose
 
-![3D 姿态](../../data/screened_results/figures/fig_3d_binding_pose.png)
+![图：3D Binding Pose](../../data/screened_results/figures/fig_3d_binding_pose.png)
 
 | 项目 | 说明 |
 |------|------|
-| **图意** | py3Dmol 渲染的 Top 1 配体（CHEMBL19019_div）在 PD-L1 口袋中的 3D 姿态 |
-| **交互版** | 打开 `fig_3d_binding_pose.html` 可在浏览器中旋转、缩放 |
-| **含义与局限** | 静态姿态；动力学稳定性见 Module 4 RMSD，自由能见 Module 5 |
+| **图意** | Top-1 Vina 配体 **CHEMBL19019_div**（橙，sticks）在 PD-L1（蓝 cartoon）口袋中的结合姿态；由 Module 4 最小化复合物 `md/CHEMBL19019_div/complex_min.pdb` 渲染 |
+| **交互版** | 打开 [`fig_3d_binding_pose.html`](../../data/screened_results/figures/fig_3d_binding_pose.html) 可在浏览器中旋转、缩放 |
+| **含义与局限** | 演示流水线姿态（口袋中心放置 + 短 MD 最小化）；仓库无对接 `pdbqt` 时并非完整 Vina 输出姿态。动力学见 Module 4 RMSD，自由能见 Module 5 |
 
 ---
 
