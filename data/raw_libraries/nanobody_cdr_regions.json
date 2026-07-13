@@ -1,0 +1,28 @@
+{
+  "seed_id": "KN035_nanobody_seed",
+  "sequence": "EVQLVESGGGLVQPGGSLRLSCAASGFTFSSYAMSWVRQAPGKGLEWVSAISGSGGSTYYADSVKGRFTISRDNSKNTLYLQMNSLRAEDTAVYYCAKDIQYGNYYYGMDYWGQGTSVTVSS",
+  "length": 122,
+  "cdr_regions": {
+    "CDR1": [
+      25,
+      32
+    ],
+    "CDR2": [
+      49,
+      56
+    ],
+    "CDR3": [
+      96,
+      114
+    ]
+  },
+  "pdl1_hotspots": [
+    "TYR56",
+    "MET115",
+    "ALA121",
+    "ASP122",
+    "LYS124",
+    "TYR123"
+  ],
+  "receptor_pdb": "/content/OmniScreen-AI/data/receptor/PDL1_4ZQK_chainB.pdb"
+}

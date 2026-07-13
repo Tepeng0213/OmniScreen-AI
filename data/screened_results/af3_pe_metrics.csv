@@ -1,0 +1,6 @@
+mut_id,job_dir,model,iptm,ptm,ranking_score,chain_pair_iptm_AB,has_clash,fraction_disordered,cif_name,complex_cif,esm_score,ppi_score
+CDR3_P98KV,pe_cdr3_p98kv_pdl1,1,0.28,0.6,0.35,0.28,0.0,0.0,fold_pe_cdr3_p98kv_pdl1_model_1.cif,data/screened_results/af3_pe_complexes/CDR3_P98KV_best.cif,0.015016496181488,19.766
+CDR3_P98KA,pe_cdr3_p98ka_pdl1,0,0.26,0.59,0.33,0.26,0.0,0.0,fold_pe_cdr3_p98ka_pdl1_model_0.cif,data/screened_results/af3_pe_complexes/CDR3_P98KA_best.cif,0.0141600966453552,19.766
+CDR3_P98KI,pe_cdr3_p98ki_pdl1,0,0.25,0.56,0.31,0.25,0.0,0.0,fold_pe_cdr3_p98ki_pdl1_model_0.cif,data/screened_results/af3_pe_complexes/CDR3_P98KI_best.cif,0.0122058093547821,19.766
+CDR3_P98KP,pe_cdr3_p98kp_pdl1,0,0.21,0.57,0.29,0.21,0.0,0.0,fold_pe_cdr3_p98kp_pdl1_model_0.cif,data/screened_results/af3_pe_complexes/CDR3_P98KP_best.cif,0.0120258033275604,19.766
+CDR3_P98KL,pe_cdr3_p98kl_pdl1,1,0.17,0.54,0.25,0.17,0.0,0.0,fold_pe_cdr3_p98kl_pdl1_model_1.cif,data/screened_results/af3_pe_complexes/CDR3_P98KL_best.cif,0.0128948986530303,19.766

@@ -1,0 +1,6 @@
+sirna_id,start,efficacy_score,model,iptm,ptm,ranking_score,prot_rna_iptm_max,rna_duplex_iptm,has_clash,fraction_disordered,job_dir,best_model_cif
+CD274_2332_2352,2332,7.5,0,0.61,0.62,0.61,0.57,0.49,0.0,0.0,na_cd274_2332_2352_pdl1,fold_na_cd274_2332_2352_pdl1_model_0.cif
+CD274_1651_1671,1651,7.5,0,0.49,0.63,0.51,0.45,0.47,0.0,0.0,na_cd274_1651_1671_pdl1,fold_na_cd274_1651_1671_pdl1_model_0.cif
+CD274_2296_2316,2296,7.5,0,0.47,0.59,0.5,0.45,0.45,0.0,0.0,na_cd274_2296_2316_pdl1,fold_na_cd274_2296_2316_pdl1_model_0.cif
+CD274_211_231,211,7.5,0,0.35,0.59,0.4,0.29,0.39,0.0,0.0,na_cd274_211_231_pdl1,fold_na_cd274_211_231_pdl1_model_0.cif
+CD274_1588_1608,1588,7.5,0,0.22,0.56,0.29,0.12,0.45,0.0,0.0,na_cd274_1588_1608_pdl1,fold_na_cd274_1588_1608_pdl1_model_0.cif

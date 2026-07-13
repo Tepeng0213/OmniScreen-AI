@@ -1,0 +1,30 @@
+[{
+ "name": "NA_CD274_2296_2316_PDL1",
+ "modelSeeds": [
+  "845703387"
+ ],
+ "sequences": [
+  {
+   "proteinChain": {
+    "sequence": "NPPTFSPALLVVTEGDNATFTCSFSNTSESFVLNWYRMSPSNQTDKLAAFPESRFRVTQLPNGRDFHMSVVRARRNDSGTYLCGAISLAPKAQIKESLRAELRVTE",
+    "count": 1,
+    "useStructureTemplate": true
+   }
+  },
+  {
+   "rnaSequence": {
+    "sequence": "GAUUAUAUGGCAAAGGCAAAU",
+    "count": 1
+   }
+  },
+  {
+   "rnaSequence": {
+    "sequence": "AUUUGCCUUUGCCAUAUAAUC",
+    "count": 1
+   }
+  }
+ ],
+ "dialect": "alphafoldserver",
+ "version": 3
+}
+]

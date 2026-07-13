@@ -14,5 +14,7 @@
 
 ## 核酸线
 
-- `CD274_mRNA.fasta` — 人类 CD274 (PD-L1) mRNA（NCBI NM_014143）
+- `CD274_mRNA.fasta` — 人类 CD274 (PD-L1) mRNA（NCBI NM_014143，Module 1 自动下载）
+- `cd274_target_metadata.json` — 靶向区域与 siRNA 设计参数
+- `reference/chr22.fa` — hg38 chr22 脱靶演示参考（Module 3 自动下载，生产环境换完整 hg38）
 - siRNA 候选由 notebook 滑动窗口自动生成

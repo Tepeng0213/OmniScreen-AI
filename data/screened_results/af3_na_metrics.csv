@@ -1,0 +1,6 @@
+sirna_id,job_dir,model,iptm,ptm,ranking_score,prot_rna_iptm_max,rna_duplex_iptm,has_clash,fraction_disordered,cif_name,complex_cif
+CD274_2332_2352,na_cd274_2332_2352_pdl1,0,0.61,0.62,0.61,0.57,0.49,0.0,0.0,fold_na_cd274_2332_2352_pdl1_model_0.cif,data/screened_results/af3_na_complexes/CD274_2332_2352_best.cif
+CD274_1651_1671,na_cd274_1651_1671_pdl1,3,0.49,0.59,0.51,0.44,0.48,0.0,0.0,fold_na_cd274_1651_1671_pdl1_model_3.cif,data/screened_results/af3_na_complexes/CD274_1651_1671_best.cif
+CD274_2296_2316,na_cd274_2296_2316_pdl1,0,0.47,0.59,0.5,0.45,0.45,0.0,0.0,fold_na_cd274_2296_2316_pdl1_model_0.cif,data/screened_results/af3_na_complexes/CD274_2296_2316_best.cif
+CD274_211_231,na_cd274_211_231_pdl1,0,0.35,0.59,0.4,0.29,0.39,0.0,0.0,fold_na_cd274_211_231_pdl1_model_0.cif,data/screened_results/af3_na_complexes/CD274_211_231_best.cif
+CD274_1588_1608,na_cd274_1588_1608_pdl1,0,0.22,0.56,0.29,0.12,0.45,0.0,0.0,fold_na_cd274_1588_1608_pdl1_model_0.cif,data/screened_results/af3_na_complexes/CD274_1588_1608_best.cif

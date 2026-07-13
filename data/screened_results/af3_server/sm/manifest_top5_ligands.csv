@@ -1,0 +1,6 @@
+rank,mol_id,smiles,vina_score,af3_server_note,receptor_pdb,pdl1_chainA_len,pdl1_chainB_len
+1,CHEMBL19019_div,O=C1CC[C@@]2(O)[C@H]3Cc4ccc(O)c5c4[C@@]2(CCN3CC2CC2)[C@H]1O5,-7.426,Custom SMILES not supported; need CCD ligand code or use OpenMM MD,data/receptor/5N2F.pdb,126,124
+2,CHEMBL428690_div,CN1CC[C@H](c2c(O)cc(O)c3c(=O)cc(-c4ccccc4Cl)oc23)[C@H](O)C1,-6.857,Custom SMILES not supported; need CCD ligand code or use OpenMM MD,data/receptor/5N2F.pdb,126,124
+3,CHEMBL273264_div,N=C(N)Nc1ccc(C(=O)Oc2ccc3cc(C(=N)N)ccc3c2)cc1,-6.326,Custom SMILES not supported; need CCD ligand code or use OpenMM MD,data/receptor/5N2F.pdb,126,124
+4,CHEMBL34259_div,CN(Cc1cnc2nc(N)nc(N)c2n1)c1ccc(C(=O)N[C@@H](CCC(=O)O)C(=O)O)cc1,-5.853,Custom SMILES not supported; need CCD ligand code or use OpenMM MD,data/receptor/5N2F.pdb,126,124
+5,CHEMBL406_div,CC1Cc2ccccc2N1NC(=O)c1ccc(Cl)c(S(N)(=O)=O)c1,-5.837,Custom SMILES not supported; need CCD ligand code or use OpenMM MD,data/receptor/5N2F.pdb,126,124
