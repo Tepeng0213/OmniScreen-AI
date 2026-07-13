@@ -452,7 +452,7 @@ AF3 Server zip
 | `af3_pe_complexes/*_best.cif` | 各突变体最佳模型 |
 | `figures/fig_pe_af3_iptm_ranking.png` | ipTM 排名图 |
 | `figures/fig_pe_af3_complex.html` | Top1 交互 3D |
-| `figures/fig_pe_af3_complex.png` | Top1 指标摘要 |
+| `figures/fig_pe_af3_complex.png` | Top1 复合物 PyMOL cartoon 快照 |
 
 **当前运行结果（最佳模型）**：
 
