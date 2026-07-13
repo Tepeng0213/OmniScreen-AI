@@ -61,7 +61,7 @@ flowchart LR
         M3 --> M4 --> M5
     end
 
-    subgraph M6["Module 6（Colab CPU）✅"]
+    subgraph M6b["Module 6（Colab CPU）✅"]
         M6[可视化 & 结果导出]
         M2 --> M6
         M3 --> M6
