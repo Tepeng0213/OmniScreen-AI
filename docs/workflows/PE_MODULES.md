@@ -487,11 +487,11 @@ AF3 Server zip
 
 | 项目 | 说明 |
 |------|------|
-| **图意** | Top1（`CDR3_P98KV`）指标摘要；交互结构见 HTML |
+| **图意** | Top1（`CDR3_P98KV`）PyMOL cartoon 静态截图：蓝=纳米抗体（链 A），橙=靶蛋白（链 B） |
 | **交互版** | 打开 [`fig_pe_af3_complex.html`](../../data/screened_results/figures/fig_pe_af3_complex.html) 可旋转缩放 |
 | **结构文件** | `af3_pe_complexes/CDR3_P98KV_best.cif` |
-| **本数据结论** | ipTM=0.28，pTM=0.60，model=1；链 A/B 双色 cartoon 展示 |
-| **含义与局限** | 静态预测；不宜直接当作实验结合姿态；Module 5 MM-GBSA 可进一步评估能量 |
+| **本数据结论** | ipTM=0.28，pTM=0.60，model=1；双色 cartoon 展示界面相对位置 |
+| **含义与局限** | 静态预测截图；不宜直接当作实验结合姿态；Module 5 MM-GBSA 可进一步评估能量 |
 
 ---
 
