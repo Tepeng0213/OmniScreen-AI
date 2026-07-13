@@ -1,0 +1,10 @@
+{
+  "method": "OpenMM MM-GBSA (Amber14 + GBn2)",
+  "inputs": "AF3 PE complexes (chain A nanobody / chain B target)",
+  "platform": "CUDA",
+  "n_complexes": 5,
+  "outputs": {
+    "summary": "data/screened_results/ppi_mmgbsa_summary.csv",
+    "decomposition": "data/screened_results/ppi_energy_decomposition.csv"
+  }
+}

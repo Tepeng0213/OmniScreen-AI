@@ -45,3 +45,12 @@
 ## 跨平台数据交接
 
 Colab Module 1–3 完成后，结果已 push 到 GitHub。RunPod 上 `git clone` 同一仓库即可继续 Module 4–5。
+
+## 蛋白质/多肽线典型产出
+
+| 文件 | 阶段 | 说明 |
+|------|------|------|
+| `af3_pe_metrics.csv` / `af3_pe_complexes/` | Module 4 | AF3 复合物与 ipTM |
+| `ppi_mmgbsa_summary.csv` | Module 5 | MM-GBSA 结合自由能排序 |
+| `ppi_energy_decomposition.csv` | Module 5 | 残基级 VDW/ELE 拆解 |
+| `figures/fig_pe_mmgbsa_*.png` | Module 5 | ΔG 排序 / 残基贡献 / vs ipTM |
