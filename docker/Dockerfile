@@ -6,13 +6,13 @@ LABEL org.opencontainers.image.description="PD-L1 multi-modal drug screening env
 USER root
 WORKDIR /workspace
 
-# 系统依赖
+# System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget curl git \
     autodock-vina \
     && rm -rf /var/lib/apt/lists/*
 
-# Conda 环境
+# Conda environment
 COPY requirements.txt /tmp/requirements.txt
 RUN micromamba install -y -n base -c conda-forge \
     python=3.11 \

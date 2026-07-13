@@ -2,116 +2,116 @@
 
 **OmniScreen-AI: A Multi-Modal High-Throughput Drug Screening & Dynamic Verification Platform for PD-L1**
 
-面向肿瘤免疫靶点 **PD-L1** 的全模态（小分子 / 大环肽 / 核酸）高通量筛选与动态动力学验证平台。
+A full-modality (small molecules / macrocyclic peptides / nucleic acids) high-throughput screening and dynamic kinetics verification platform for the tumor immunotherapy target **PD-L1**.
 
-## 项目亮点
+## Project Highlights
 
-- **三模态并行漏斗**：化学空间（小分子）、序列空间（抗体/多肽）、RNA 空间（siRNA/Aptamer）
-- **四段闭环验证**：AI 初筛 → 结构对接 → MD 动力学 → 自由能计算
-- **Notebook 驱动**：全部逻辑集中在 3 个 workflow notebook，模块化分块，Colab 一键复现
-- **算力分层**：Colab CPU（初筛 + 对接）→ RunPod GPU（MD + 自由能）
+- **Three-modality parallel funnel**: chemical space (small molecules), sequence space (antibodies/peptides), RNA space (siRNA/Aptamer)
+- **Four-stage closed-loop validation**: AI pre-screening → structural docking → MD kinetics → free energy calculation
+- **Notebook-driven**: all logic lives in 3 workflow notebooks, modular blocks, one-click Colab reproduction
+- **Tiered compute**: Colab CPU (pre-screen + docking) → RunPod GPU (MD + free energy)
 
-## 仓库结构
+## Repository Structure
 
 ```
 OmniScreen-AI/
 ├── notebooks/
-│   ├── OmniScreen_SM_Workflow.ipynb          # 小分子全流程（ChEMBL 真实化合物库）
-│   ├── OmniScreen_PE_Workflow.ipynb   # 蛋白质/多肽全流程
-│   └── OmniScreen_NA_Workflow.ipynb   # 核酸药物全流程
+│   ├── OmniScreen_SM_Workflow.ipynb          # Small-molecule full pipeline (ChEMBL real compound library)
+│   ├── OmniScreen_PE_Workflow.ipynb   # Protein/peptide full pipeline
+│   └── OmniScreen_NA_Workflow.ipynb   # Nucleic-acid drug full pipeline
 ├── data/
-│   ├── receptor/          # PD-L1 受体 PDB（5N2F, 4ZQK 等）
-│   ├── raw_libraries/     # 初始候选库（SMILES / FASTA / mRNA）
-│   └── screened_results/  # 各阶段筛选输出
-├── docker/                # 可选：标准化运行环境
+│   ├── receptor/          # PD-L1 receptor PDB (5N2F, 4ZQK, etc.)
+│   ├── raw_libraries/     # Initial candidate libraries (SMILES / FASTA / mRNA)
+│   └── screened_results/  # Stage-wise screening outputs
+├── docker/                # Optional: standardized runtime environment
 ├── pyproject.toml
 └── requirements.txt
 ```
 
-## 快速开始（Cursor + Colab）
+## Quick Start (Cursor + Colab)
 
-1. Clone 本仓库，用 Cursor 打开
-2. 安装 [Google Colab](https://marketplace.visualstudio.com/items?itemName=Google.colab) 与 [Notebook MCP](https://marketplace.visualstudio.com/items?itemName=olavovieiradecarvalho.notebook-mcp-server) 扩展
-3. **配置 GitHub Token**（推送数据必需）：
-   - 在 [GitHub Settings → Tokens](https://github.com/settings/tokens) 创建 PAT（勾选 `repo` 权限）
-   - **Cursor + Colab 扩展**：运行 notebook 中「配置 GitHub Token」cell，手动粘贴 token（Colab Secrets 仅在网页端有效，Cursor 内核读不到）
-   - **Colab 网页端**：可在 🔑 Secrets 添加 `GITHUB_TOKEN`，代码会自动读取
-4. 打开 `notebooks/OmniScreen_SM_Workflow.ipynb`，选择 **Colab** 内核
-5. 按模块顺序运行 cell（Module 0 → Module 6）
+1. Clone this repo and open it in Cursor
+2. Install the [Google Colab](https://marketplace.visualstudio.com/items?itemName=Google.colab) and [Notebook MCP](https://marketplace.visualstudio.com/items?itemName=olavovieiradecarvalho.notebook-mcp-server) extensions
+3. **Configure GitHub Token** (required for pushing data):
+   - Create a PAT at [GitHub Settings → Tokens](https://github.com/settings/tokens) (check `repo` scope)
+   - **Cursor + Colab extension**: run the "Configure GitHub Token" cell in the notebook and paste the token manually (Colab Secrets only work in the web UI; the Cursor kernel cannot read them)
+   - **Colab web UI**: add `GITHUB_TOKEN` in 🔑 Secrets; code will read it automatically
+4. Open `notebooks/OmniScreen_SM_Workflow.ipynb` and select the **Colab** kernel
+5. Run cells in module order (Module 0 → Module 6)
 
-> **算力建议**：Module 1–3 在 Colab CPU/GPU 免费层即可；Module 4–5（OpenMM / 自由能）建议在 RunPod 等 GPU 平台运行，详见各 notebook 内说明。
+> **Compute tips**: Modules 1–3 run fine on Colab free-tier CPU/GPU; Modules 4–5 (OpenMM / free energy) are best on GPU platforms like RunPod — see in-notebook notes.
 
-## 数据持久化策略（Colab + 本地自动同步）
+## Data Persistence Strategy (Colab + Local Auto-Sync)
 
-**Colab 在云端运行，无法直接写本地磁盘。** 采用「云端计算 → 打包输出 → Agent 写回本地」：
+**Colab runs in the cloud and cannot write directly to local disk.** We use "cloud compute → pack outputs → Agent writes back locally":
 
 ```
-Colab 运行模块
-  → export_for_local_sync() 将 data/ 文件 base64 输出到 cell
-  → Cursor Agent 解析输出标记
-  → 自动写入本地 /Users/schmit/Documents/OmniScreen-AI/data/
+Colab runs modules
+  → export_for_local_sync() base64-encodes data/ files into cell output
+  → Cursor Agent parses sync markers
+  → Writes automatically to local /Users/schmit/Documents/OmniScreen-AI/data/
 
-GitHub push 为可选备份（需 token），非主要同步方式。
+GitHub push is optional backup (needs token), not the primary sync path.
 ```
 
-| 文件类型 | 本地 data/ | GitHub |
+| File type | Local data/ | GitHub |
 |----------|-----------|--------|
-| `*.csv`, `*.smi`, `*.png`, `*.pdb` | ✅ Agent 自动写回 | 可选 push |
-| `*.dcd`, `*.xtc`（MD 轨迹） | ❌ 太大 | 外部存储 |
+| `*.csv`, `*.smi`, `*.png`, `*.pdb` | ✅ Agent auto-write | Optional push |
+| `*.dcd`, `*.xtc` (MD trajectories) | ❌ Too large | External storage |
 
-## 三条流水线概览
+## Three Pipeline Overview
 
-| Notebook | 模态 | 核心工具链 | 文档 |
+| Notebook | Modality | Core toolchain | Docs |
 |----------|------|-----------|------|
-| `OmniScreen_SM_Workflow` | 小分子 | RDKit, AutoDock Vina, OpenMM, MM/PBSA | [SM 模块说明](docs/workflows/SM_MODULES.md) |
-| `OmniScreen_PE_Workflow` | 蛋白/多肽 | ESM-2, HDOCKlite, AlphaFold 3 | [PE 模块说明](docs/workflows/PE_MODULES.md) |
-| `OmniScreen_NA_Workflow` | 核酸 | ViennaRNA, Bowtie2, AlphaFold 3 | [NA 模块说明](docs/workflows/NA_MODULES.md) |
+| `OmniScreen_SM_Workflow` | Small molecules | RDKit, AutoDock Vina, OpenMM, MM/PBSA | [SM modules](docs/workflows/SM_MODULES.md) |
+| `OmniScreen_PE_Workflow` | Protein/peptide | ESM-2, HDOCKlite, AlphaFold 3 | [PE modules](docs/workflows/PE_MODULES.md) |
+| `OmniScreen_NA_Workflow` | Nucleic acids | ViennaRNA, Bowtie2, AlphaFold 3 | [NA modules](docs/workflows/NA_MODULES.md) |
 
-## 数据说明
+## Data Notes
 
-- 筛选结果 CSV、图表 PNG、小型 SMILES 库、受体 PDB → **自动 commit 到 GitHub**
-- MD 轨迹（`.dcd`）、超大化合物库 → 不纳入 Git，见 `data/*/README.md`
+- Screening CSVs, chart PNGs, small SMILES libraries, receptor PDB → **auto-commit to GitHub**
+- MD trajectories (`.dcd`), oversized compound libraries → not in Git; see `data/*/README.md`
 
-## 方案局限与「漏检」
+## Limitations & False Negatives
 
-计算机辅助药物设计（AIDD）的核心目标不是「100% 不漏」，而是在数百万分子面前，用可承受的算力把候选范围尽快缩小。在这个过程中，**因软件计算出错、配置不当或算法近似而把好分子当成垃圾扔掉**，在工业界称为 **漏检（false negative）**。OmniScreen-AI 当前流水线同样存在这一权衡，主要体现在 Module 2–3 两个卡点。
+The core goal of computer-aided drug design (AIDD) is not "100% recall" but to shrink the candidate space with affordable compute among millions of molecules. **Discarding good molecules due to software errors, misconfiguration, or algorithmic approximations** is called a **false negative** in industry. The OmniScreen-AI pipeline has the same trade-off, mainly at Modules 2–3.
 
-### 卡点一：配体准备失败（`ligand_prep_failed`）
+### Bottleneck 1: Ligand preparation failure (`ligand_prep_failed`)
 
-**原因：软件的「刻板印象」与能力边界。**
+**Cause: rigid software assumptions and capability limits.**
 
-配体准备阶段，软件需要推测分子在生理环境（pH ≈ 7.4）下的质子化形态、电荷与可旋转键处理。部分新颖分子含有罕见杂环或复杂立体交叉结构时，经典拓扑工具（MGLTools、Open Babel 等）可能因参数库中缺乏先例，无法正确分配电荷或键参数，直接报错退出。
+During ligand prep, tools infer protonation state, charge, and rotatable bonds at physiological pH (~7.4). Novel molecules with rare heterocycles or complex stereochemistry may lack precedents in classical topology tools (MGLTools, Open Babel, etc.), causing charge or parameter assignment to fail.
 
-在本项目中，Module 3 使用 RDKit 3D 嵌入 + Open Babel 转 PDBQT；一旦准备失败，该分子不会进入 Vina 打分，在 `docking_scores.csv` 中标记为 `ligand_prep_failed`——**好药可能在此被无声淘汰**。
+In this project, Module 3 uses RDKit 3D embedding + Open Babel → PDBQT; on failure the molecule never enters Vina scoring and is marked `ligand_prep_failed` in `docking_scores.csv` — **promising drugs may be silently dropped here**.
 
-### 卡点二：Vina 对接失败或打分偏低（`vina_failed` / 低分淘汰）
+### Bottleneck 2: Vina docking failure or low scores (`vina_failed` / low-score elimination)
 
-**原因：刚性受体的「盲人摸象」与算力妥协。**
+**Cause: rigid receptor "blind probing" and compute compromises.**
 
-AutoDock Vina 为追求高通量速度，采用 **刚性受体对接**：把 PD-L1 当作固定不动的「锁」，只允许配体扭动构象去匹配。但真实蛋白是动态的：
+AutoDock Vina uses **rigid receptor docking** for throughput: PD-L1 is a fixed "lock" and only the ligand rotates. Real proteins are dynamic:
 
-- **诱导契合（Induced Fit）**：部分有效药物初接触时口袋尚小，静态对接会失败或给出极差分数（如 −4.0 kcal/mol）；若给予足够时间，配体可诱导口袋张开并形成稳定结合。Vina 的单次静态采样**看不到这一过程**。
-- **搜索不充分**：默认 `exhaustiveness` 较低时，复杂口袋内可能未采样到合理姿态，导致运行失败或虚低分。
+- **Induced fit**: some actives bind when the pocket is still small; static docking fails or scores poorly (e.g. −4.0 kcal/mol); given time, the ligand can open the pocket and stabilize. Vina's single static sample **misses this**.
+- **Insufficient search**: low default `exhaustiveness` may miss reasonable poses in complex pockets, causing failure or artificially low scores.
 
-当前 OmniScreen SM 流程对通过初筛的分子按排序取 Top **250** 对接（`SM_CONFIG["max_dock"]`），进一步放大「排名靠后即被放弃」的漏检风险。
+The current OmniScreen SM flow docks only the top **250** after pre-screen (`SM_CONFIG["max_dock"]`), increasing false-negative risk for lower-ranked molecules.
 
-### 工业界常见应对策略
+### Common industry mitigations
 
-| 策略 | 思路 | 与本项目的关系 |
+| Strategy | Idea | Relation to this project |
 |------|------|----------------|
-| **大基数放行** | Module 2 不过度收紧，让数千分子进入对接，用规模对抗规则漏检 | 当前库 ~2,300 条，初筛通过 ~864 条；可调宽 Lipinski 阈值或 `max_dock` |
-| **深度学习对接并行** | DiffDock、Uni-Mol 等模型不依赖传统电荷参数，可捞回 Vina 失败分子 | 🔜 规划中，可作为 Module 3 补充分支 |
-| **提高搜索精度** | 将 Vina `exhaustiveness` 从 8 提至 16–32，减少采样不足导致的失败 | 可在 Module 3 脚本中调整，代价是 CPU 时间成倍增加 |
-| **动态复核** | MD / MM-PBSA 对幸存候选做诱导契合与结合稳定性验证 | Module 4–5（RunPod GPU）的设计初衷 |
+| **Large funnel throughput** | Don't over-tighten Module 2; let thousands dock; use scale against rule-based misses | Current library ~2,300; ~864 pass pre-screen; widen Lipinski or `max_dock` |
+| **Deep-learning docking in parallel** | DiffDock, Uni-Mol, etc. avoid classical charge params; recover Vina failures | 🔜 Planned as Module 3 supplement |
+| **Higher search precision** | Raise Vina `exhaustiveness` from 8 to 16–32 | Adjustable in Module 3; CPU time grows |
+| **Dynamic re-validation** | MD / MM-PBSA for induced fit and binding stability | Modules 4–5 (RunPod GPU) purpose |
 
-### 设计哲学
+### Design philosophy
 
-> 宁可在大海里快速筛掉一大批，也不能让算力在第一步就瘫痪——但幸存下来的分子，仍需要一次「动态平反」。
+> Better to quickly filter a huge pool than stall compute at step one — but survivors still need dynamic "appeal."
 
-因此 OmniScreen 采用 **Colab 漏斗（Module 0–3）+ RunPod 动力学（Module 4–5）** 的分层架构：前者负责速度与规模，后者负责对静态对接不确定性的补充验证。对接分数与初筛标签应视为 **排序线索**，而非最终成药性判决。
+OmniScreen uses **Colab funnel (Modules 0–3) + RunPod kinetics (Modules 4–5)**: speed and scale first, then validation of static docking uncertainty. Docking scores and pre-screen labels are **ranking hints**, not final druggability verdicts.
 
-更细的模块级说明见 [SM 模块文档 — 局限性与假设](docs/workflows/SM_MODULES.md#15-当前局限性与假设)。
+See [SM modules — limitations & assumptions](docs/workflows/SM_MODULES.md#15-current-limitations-and-assumptions) for module-level detail.
 
 ## License
 
-MIT — 见 [LICENSE](LICENSE)
+MIT — see [LICENSE](LICENSE)

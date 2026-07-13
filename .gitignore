@@ -18,7 +18,7 @@ build/
 .ipynb_checkpoints/
 */.ipynb_checkpoints/
 
-# ── 大数据文件仍忽略（用 Git LFS 或外部存储）──
+# ── Large data files still ignored (use Git LFS or external storage) ──
 *.dcd
 *.xtc
 *.trr
@@ -27,17 +27,17 @@ build/
 docking_runs/
 md_outputs/
 
-# 超大化合物库（>1MB 的原始库不提交）
+# Oversized compound libraries (>1MB raw libraries not committed)
 data/raw_libraries/*.sdf
 data/raw_libraries/*.csv
 data/raw_libraries/zinc_*
 data/raw_libraries/chembl_*
 
-# ── 以下运行结果允许提交到 GitHub ──
+# ── The following run outputs may be committed to GitHub ──
 # data/screened_results/*.csv  ✅
 # data/screened_results/*.png   ✅
-# data/raw_libraries/*.smi      ✅ (小型测试库)
-# data/receptor/*.pdb           ✅ (受体结构)
+# data/raw_libraries/*.smi      ✅ (small test libraries)
+# data/receptor/*.pdb           ✅ (receptor structures)
 
 # Secrets
 .env
@@ -54,7 +54,7 @@ Thumbs.db
 *.swp
 *.swo
 
-# Colab temp (不使用 /content 裸目录)
+# Colab temp (do not use bare /content directory)
 /content/
 
 # R

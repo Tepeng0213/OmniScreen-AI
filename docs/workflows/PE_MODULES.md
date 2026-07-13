@@ -1,58 +1,58 @@
-# OmniScreen 蛋白质/多肽筛选流程 (PE)
+# OmniScreen Protein/Peptide Screening Workflow (PE)
 
-> **Notebook**：[`notebooks/OmniScreen_PE_Workflow.ipynb`](../../notebooks/OmniScreen_PE_Workflow.ipynb)  
-> **靶点**：PD-L1 (CD274)  
-> **当前进度**：Module 0–6 ✅（Module 5 = OpenMM MM-GBSA / CUDA）
-
----
-
-## 目录
-
-1. [概述](#1-概述)
-2. [快速开始](#2-快速开始)
-3. [模块详解](#3-模块详解)
-4. [数据字典](#4-数据字典)
-5. [跨平台交接](#5-跨平台交接-colab--runpod)
-6. [常见问题](#6-常见问题)
-7. [术语表](#7-术语表)
-8. [参考文献](#8-参考文献)
+> **Notebook**: [`notebooks/OmniScreen_PE_Workflow.ipynb`](../../notebooks/OmniScreen_PE_Workflow.ipynb)  
+> **Target**: PD-L1 (CD274)  
+> **Current progress**: Module 0–6 ✅ (Module 5 = OpenMM MM-GBSA / CUDA)
 
 ---
 
-## 1. 概述
+## Table of Contents
 
-### 1.1 科学背景与项目目的
+1. [Overview](#1-overview)
+2. [Quick Start](#2-quick-start)
+3. [Module Details](#3-module-details)
+4. [Data Dictionary](#4-data-dictionary)
+5. [Cross-Platform Handoff](#5-cross-platform-handoff-colab--runpod)
+6. [FAQ](#6-faq)
+7. [Glossary](#7-glossary)
+8. [References](#8-references)
 
-**PD-L1**（Programmed Death-Ligand 1）是肿瘤免疫检查点关键膜蛋白，与 T 细胞表面 **PD-1** 结合可抑制抗肿瘤免疫。除小分子抑制剂外，**纳米抗体（VHH）**、工程化多肽等 **蛋白/多肽模态** 可靶向 PD-L1 界面，在免疫治疗与诊断领域具有应用潜力。
+---
 
-**OmniScreen PE 线路**的目标是：建立一条可复现的 **序列空间 → 结构空间 → 动力学/自由能** 筛选漏斗，对纳米抗体 CDR 饱和突变库进行计算排序，并为后续高精度结构验证（AlphaFold 3）与结合自由能解析提供候选列表。
+## 1. Overview
 
-本线路不替代湿实验（SPR、细胞阻断实验等），而是提供：
+### 1.1 Scientific Background and Project Goals
 
-- 可量化的 **序列适应度排序**（ESM-2 ΔLL）
-- 可审计的 **蛋白-蛋白界面粗评**（热点接触 + 界面得分）
-- 可复用的 **模块化 Notebook 流程**（与 SM / NA 线路结构对齐）
+**PD-L1** (Programmed Death-Ligand 1) is a key tumor immune checkpoint membrane protein. Binding to **PD-1** on T cells suppresses anti-tumor immunity. Beyond small-molecule inhibitors, **protein/peptide modalities** such as **nanobodies (VHH)** and engineered peptides can target the PD-L1 interface, with potential applications in immunotherapy and diagnostics.
 
-### 1.2 技术路线总览
+The goal of the **OmniScreen PE pipeline** is to establish a reproducible **sequence space → structure space → dynamics/free energy** screening funnel, computationally rank a nanobody CDR saturation mutagenesis library, and provide a candidate list for subsequent high-precision structural validation (AlphaFold 3) and binding free energy analysis.
+
+This pipeline does not replace wet-lab experiments (SPR, cell-based blocking assays, etc.), but instead provides:
+
+- Quantifiable **sequence fitness ranking** (ESM-2 ΔLL)
+- Auditable **protein–protein interface coarse scoring** (hotspot contacts + interface score)
+- Reusable **modular Notebook workflow** (aligned in structure with SM / NA pipelines)
+
+### 1.2 Technical Route Overview
 
 ```mermaid
 flowchart LR
-    subgraph M0_3["Module 0–3（Colab）✅"]
-        M0[Module 0<br/>环境配置]
-        M1[Module 1<br/>4ZQK + 纳米抗体种子]
-        M2[Module 2<br/>ESM-2 CDR 突变打分]
-        M3[Module 3<br/>PPI 对接 / 界面评分]
+    subgraph M0_3["Module 0–3 (Colab) ✅"]
+        M0[Module 0<br/>Environment setup]
+        M1[Module 1<br/>4ZQK + nanobody seed]
+        M2[Module 2<br/>ESM-2 CDR mutation scoring]
+        M3[Module 3<br/>PPI docking / interface scoring]
         M0 --> M1 --> M2 --> M3
     end
 
     subgraph M4_5["Module 4–5 ✅"]
-        M4[Module 4<br/>AF3 Server 解析]
+        M4[Module 4<br/>AF3 Server parsing]
         M5[Module 5<br/>OpenMM MM-GBSA]
         M3 --> M4 --> M5
     end
 
-    subgraph M6b["Module 6（Colab CPU）✅"]
-        M6[可视化 & 结果导出]
+    subgraph M6b["Module 6 (Colab CPU) ✅"]
+        M6[Visualization & result export]
         M2 --> M6
         M3 --> M6
         M4 --> M6
@@ -63,400 +63,400 @@ flowchart LR
     M4 -.->|AF3 CIF| M5
 ```
 
-**筛选逻辑（漏斗）**：
+**Screening logic (funnel)**:
 
-| 阶段 | 淘汰对象 | 保留标准 |
+| Stage | Eliminated | Retention criteria |
 |------|----------|----------|
-| Module 2 | CDR 单点突变中序列适应度差的变体 | 按 `esm_score`（ΔLL）降序；默认取 Top 20 进入 Module 3 |
-| Module 3 | 结构生成失败、界面评分异常 | `status == ok`；综合 ESM + PPI 指标排序 |
-| Module 4 | AF3 ipTM 过低、界面置信不足 | `iptm` 相对排序；参考 ≥0.6 |
-| Module 5 | 结合自由能无优势、界面能量分解不合理 | `dG_bind_kcalmol` 越负越好；结合残基 VDW/ELE 贡献 |
+| Module 2 | CDR single-point variants with poor sequence fitness | Sort by `esm_score` (ΔLL) descending; default Top 20 proceed to Module 3 |
+| Module 3 | Structure generation failures, abnormal interface scores | `status == ok`; combined ESM + PPI metric ranking |
+| Module 4 | Low AF3 ipTM, insufficient interface confidence | Relative `iptm` ranking; reference ≥0.6 |
+| Module 5 | No binding free energy advantage, unreasonable interface energy decomposition | More negative `dG_bind_kcalmol` is better; interface residue VDW/ELE contributions |
 
-### 1.3 技术栈一览
+### 1.3 Technology Stack
 
-| 类别 | 工具 / 库 | 用途 |
+| Category | Tool / Library | Purpose |
 |------|-----------|------|
-| 序列建模 | ESM-2 (`fair-esm`) | CDR 突变序列 log-likelihood / ΔLL 打分 |
-| 结构预测（可选） | ESMFold | GPU 下纳米抗体 3D 结构；CPU 回退 extended-CA |
-| 蛋白-蛋白对接 | HDOCKlite（可选） | 全原子对接；不可用时仅用界面评分 |
-| 结构解析 | BioPython | PDB 解析、NeighborSearch 接触统计 |
-| 可视化 | matplotlib、seaborn、py3Dmol | DMS 热图、漏斗、AF3 排名 / 3D HTML、MM-GBSA 能量图 |
-| 结构验证 | AlphaFold 3 Server + 本地解析 | 纳米抗体–PD-L1 复合物；ipTM / pTM |
-| 自由能 | OpenMM MM-GBSA（Amber14 + GBn2） | ΔG_bind + 界面残基 VDW/ELE 拆解（CUDA） |
-| 运行环境 | Colab CPU + AF3 Server + GPU | Module 0–3、6 CPU；Module 4 Server；Module 5 CUDA GPU |
-| 协作 | Cursor Agent + `export_for_local_sync` | 云端结果写回本地 |
+| Sequence modeling | ESM-2 (`fair-esm`) | CDR mutation sequence log-likelihood / ΔLL scoring |
+| Structure prediction (optional) | ESMFold | Nanobody 3D structure on GPU; CPU fallback extended-CA |
+| Protein–protein docking | HDOCKlite (optional) | All-atom docking; interface scoring only when unavailable |
+| Structure parsing | BioPython | PDB parsing, NeighborSearch contact statistics |
+| Visualization | matplotlib, seaborn, py3Dmol | DMS heatmap, funnel, AF3 ranking / 3D HTML, MM-GBSA energy plots |
+| Structure validation | AlphaFold 3 Server + local parsing | Nanobody–PD-L1 complex; ipTM / pTM |
+| Free energy | OpenMM MM-GBSA (Amber14 + GBn2) | ΔG_bind + interface residue VDW/ELE decomposition (CUDA) |
+| Runtime environment | Colab CPU + AF3 Server + GPU | Module 0–3, 6 on CPU; Module 4 Server; Module 5 CUDA GPU |
+| Collaboration | Cursor Agent + `export_for_local_sync` | Write cloud results back to local |
 
-### 1.4 应用场景与可扩展方向
+### 1.4 Use Cases and Extension Directions
 
-| 场景 | 替换项 | 保留模块 |
+| Scenario | Replace | Keep modules |
 |------|--------|----------|
-| **换靶点** | 受体 PDB（如 EGFR、HER2）及对应热点残基列表 | Module 0–2 逻辑；Module 3 重定义 `pdl1_hotspots` |
-| **换抗体骨架** | `pd_l1_nanobody_seed.fasta` + `nanobody_cdr_regions.json` | Module 2–3 全流程 |
-| **扩展 CDR 扫描** | `SCAN_REGIONS = ["CDR1","CDR2","CDR3"]` | Module 2 突变库规模增大 |
-| **双特异性 / 融合蛋白** | 多条链 FASTA、分段 CDR 注释 | Module 2 序列输入扩展 |
-| **多肽（非 VHH）** | 较短 FASTA、无 FR 区的 CDR 定义 | Module 2 ESM-2 仍适用；Module 3 对接策略需调整 |
-| **与 SM / NA 联用** | 同一 PD-L1 靶点不同模态并行筛选 | 共享 `data/receptor/`，结果各自 CSV |
+| **Change target** | Receptor PDB (e.g. EGFR, HER2) and corresponding hotspot residue list | Module 0–2 logic; redefine `pdl1_hotspots` in Module 3 |
+| **Change antibody scaffold** | `pd_l1_nanobody_seed.fasta` + `nanobody_cdr_regions.json` | Module 2–3 full workflow |
+| **Expand CDR scan** | `SCAN_REGIONS = ["CDR1","CDR2","CDR3"]` | Module 2 mutagenesis library size increases |
+| **Bispecific / fusion protein** | Multi-chain FASTA, segmented CDR annotations | Module 2 sequence input extension |
+| **Peptide (non-VHH)** | Shorter FASTA, CDR definition without FR regions | Module 2 ESM-2 still applies; Module 3 docking strategy needs adjustment |
+| **Combined with SM / NA** | Same PD-L1 target, different modalities screened in parallel | Share `data/receptor/`, separate result CSVs |
 
-### 1.5 当前局限性与假设
+### 1.5 Current Limitations and Assumptions
 
-- **ESM-2 ΔLL ≠ 结合亲和力**：反映序列在进化/语言模型意义下的「可折叠性/稳定性」趋势，不能直接等同于 Kd 或 IC50。
-- **extended-CA 粗模**：Colab CPU 无 GPU 时，Module 3 使用 **CA 延伸链** 代替全原子结构，**所有 Top 突变体的 PPI 几何指标可能相同**（当前演示即如此：ppi=19.766，hotspot=9）；界面图仅供流程验证，不能作为发表级结合姿态。
-- **HDOCKlite 未强制启用**：演示流程以 **界面接触打分**（5 Å 内 CA 接触 + PD-L1 热点加权）为主；完整对接需安装 HDOCKlite 或 GPU 上启用 ESMFold。
-- **CDR 区域为 Kabat 近似**：`nanobody_cdr_regions.json` 中的 CDR1/2/3 边界需与实验或 ANARCI 注释交叉验证。
-- **Module 4 AF3 界面置信偏低**：当前 Top5 ipTM 均 < 0.3，结构仅供相对排序；可能与 PD-L1 仅用 4ZQK 短 IgV 片段有关。
-- **Module 5 MM-GBSA 为隐式溶剂单点估算**：对 AF3 复合物最小化后计算 ΔG；**非显式水盒 MD / 非实验 Kd**。残基拆解为真空配对 VDW+ELE，不含完整 GB 项分摊，宜作相对比较。
+- **ESM-2 ΔLL ≠ binding affinity**: Reflects "foldability/stability" trends in evolutionary/language-model terms, not directly equivalent to Kd or IC50.
+- **extended-CA coarse model**: When Colab CPU has no GPU, Module 3 uses **CA extended chain** instead of all-atom structure; **all Top mutant PPI geometry metrics may be identical** (as in the current demo: ppi=19.766, hotspot=9); interface plots are for workflow validation only, not publication-grade binding poses.
+- **HDOCKlite not mandatory**: Demo workflow relies primarily on **interface contact scoring** (CA contacts within 5 Å + PD-L1 hotspot weighting); full docking requires HDOCKlite installation or ESMFold on GPU.
+- **CDR regions are Kabat approximations**: CDR1/2/3 boundaries in `nanobody_cdr_regions.json` should be cross-validated with experiments or ANARCI annotations.
+- **Module 4 AF3 interface confidence is low**: Current Top5 ipTM all < 0.3; structures are for relative ranking only; may relate to PD-L1 using only the short 4ZQK IgV fragment.
+- **Module 5 MM-GBSA is implicit-solvent single-point estimate**: ΔG computed after minimization of AF3 complex; **not explicit water-box MD / not experimental Kd**. Residue decomposition is vacuum-paired VDW+ELE, without full GB term allocation; use for relative comparison.
 
 ---
 
-## 2. 快速开始
+## 2. Quick Start
 
-### 2.1 环境要求
+### 2.1 Environment Requirements
 
-| 环境 | 说明 |
+| Environment | Description |
 |------|------|
-| **Colab + Cursor（推荐）** | Cursor 通过 Notebook MCP 连接 Colab 内核执行 cell |
-| **Colab GPU（Module 2 推荐）** | ESM-2 打分在 GPU 上显著加速；CPU 可跑但较慢 |
-| **Colab CPU** | Module 0–1、3（extended-CA）、6 可在 CPU 完成 |
-| **CUDA GPU（Module 5）** | OpenMM MM-GBSA；推荐 `omniscreen-md` 环境 + A100 |
-| **本地** | Python 3.10+、PyTorch、`fair-esm`、`biopython`；Module 3 全原子对接需 GPU + openfold（ESMFold） |
+| **Colab + Cursor (recommended)** | Cursor executes cells via Notebook MCP connected to Colab kernel |
+| **Colab GPU (Module 2 recommended)** | ESM-2 scoring significantly faster on GPU; CPU works but slower |
+| **Colab CPU** | Module 0–1, 3 (extended-CA), 6 can run on CPU |
+| **CUDA GPU (Module 5)** | OpenMM MM-GBSA; recommend `omniscreen-md` environment + A100 |
+| **Local** | Python 3.10+, PyTorch, `fair-esm`, `biopython`; Module 3 all-atom docking needs GPU + openfold (ESMFold) |
 
-### 2.2 推荐运行顺序（Module 0–6）
+### 2.2 Recommended Run Order (Module 0–6)
 
 ```
-Module 0  →  初始化 PATHS / 同步函数
+Module 0  →  Initialize PATHS / sync functions
     ↓
-Module 1  →  下载 4ZQK、写入纳米抗体种子 & CDR 元数据
+Module 1  →  Download 4ZQK, write nanobody seed & CDR metadata
     ↓
-Module 2  →  生成 mutation_scores.csv（361 条 CDR3 突变，约 5–15 min，视 GPU 而定）
+Module 2  →  Generate mutation_scores.csv (361 CDR3 mutations, ~5–15 min depending on GPU)
     ↓
-Module 3  →  生成 ppi_docking_scores.csv + pe_docking/*.pdb（Top 20，约 2–5 min）
+Module 3  →  Generate ppi_docking_scores.csv + pe_docking/*.pdb (Top 20, ~2–5 min)
     ↓
-Module 4  →  解析 AF3 → af3_pe_metrics.csv + fig_pe_af3_*
+Module 4  →  Parse AF3 → af3_pe_metrics.csv + fig_pe_af3_*
     ↓
-Module 5  →  OpenMM MM-GBSA → ppi_mmgbsa_summary.csv + 能量图（CUDA，约 1 min / 复合物）
+Module 5  →  OpenMM MM-GBSA → ppi_mmgbsa_summary.csv + energy plots (CUDA, ~1 min / complex)
     ↓
-Module 6  →  汇总 fig5* / fig6* / fig_pe_*（含 MM-GBSA 图 7b–7d）
+Module 6  →  Aggregate fig5* / fig6* / fig_pe_* (including MM-GBSA plots 7b–7d)
 ```
 
-> **注意**：Module 5 需 CUDA 可用的 OpenMM 环境（如 `omniscreen-md` / A100）。脚本：`scripts/pe_module5_mmgbsa.py`。
+> **Note**: Module 5 requires a CUDA-capable OpenMM environment (e.g. `omniscreen-md` / A100). Script: `scripts/pe_module5_mmgbsa.py`.
 
-### 2.3 输出目录
+### 2.3 Output Directories
 
 ```
 data/
 ├── receptor/
-│   ├── 4ZQK.pdb                      # Module 1：PD-1/PD-L1 复合物
-│   ├── PDL1_4ZQK_chainB.pdb          # Module 1：PD-L1 链（对接受体）
-│   └── PD1_4ZQK_chainA.pdb           # Module 1：PD-1 链（参考）
+│   ├── 4ZQK.pdb                      # Module 1: PD-1/PD-L1 complex
+│   ├── PDL1_4ZQK_chainB.pdb          # Module 1: PD-L1 chain (docking receptor)
+│   └── PD1_4ZQK_chainA.pdb           # Module 1: PD-1 chain (reference)
 ├── raw_libraries/
-│   ├── pd_l1_nanobody_seed.fasta     # Module 1：KN035 纳米抗体种子
-│   └── nanobody_cdr_regions.json     # Module 1：CDR 区域 & 热点残基
+│   ├── pd_l1_nanobody_seed.fasta     # Module 1: KN035 nanobody seed
+│   └── nanobody_cdr_regions.json     # Module 1: CDR regions & hotspot residues
 └── screened_results/
     ├── mutation_scores.csv           # Module 2
     ├── ppi_docking_scores.csv        # Module 3
-    ├── pe_docking/*.pdb              # Module 3：突变体结构（extended-CA 或 ESMFold）
+    ├── pe_docking/*.pdb              # Module 3: mutant structures (extended-CA or ESMFold)
     ├── af3_pe_metrics.csv            # Module 4
     ├── af3_pe_complexes/*_best.cif   # Module 4
     ├── ppi_mmgbsa_summary.csv        # Module 5
     ├── ppi_energy_decomposition.csv  # Module 5
-    ├── pe_complexes/*_min.pdb        # Module 5：最小化复合物
-    └── figures/                      # Module 6（fig5*/fig6*/fig_pe_*）
+    ├── pe_complexes/*_min.pdb        # Module 5: minimized complexes
+    └── figures/                      # Module 6 (fig5*/fig6*/fig_pe_*)
 ```
 
-详见 [`data/screened_results/README.md`](../../data/screened_results/README.md)。
+See [`data/screened_results/README.md`](../../data/screened_results/README.md) for details.
 
 ---
 
-## 3. 模块详解
+## 3. Module Details
 
-> 每个模块采用统一结构：**目的 → 依赖 → 输入 → 方法 → 输出 → 判定标准 → 算力 → 可迁移场景 → 结果解读（含图）**
-
----
-
-### Module 0 — 环境配置与路径初始化
-
-**目的**：统一项目根目录 `PATHS`，初始化 Colab ↔ 本地同步机制。
-
-**前置依赖**：无。
-
-**输入**：GitHub 仓库 `OmniScreen-AI`（Colab 自动 clone 至 `/content/OmniScreen-AI`）。
-
-**方法**：
-- 检测 Colab / 本地环境，设置 `PROJECT_ROOT`
-- 定义 `PATHS = {receptor, raw, results}`
-- 提供 `persist_to_github()` 与 `export_for_local_sync()` 用于数据持久化
-
-**输出**：内存变量 `PATHS`、`PROJECT_ROOT`（无文件）。
-
-**算力**：Colab CPU，< 1 分钟。
-
-**可迁移场景**：任何 Colab + Cursor 协作项目可复制 Module 0 模板。
-
-> Module 0 为基础设施，科学内容从 Module 1 开始。环境与复现细节见 [§2 快速开始](#2-快速开始)。
+> Each module follows a uniform structure: **Purpose → Dependencies → Input → Method → Output → Criteria → Compute → Migration scenarios → Result interpretation (with figures)**
 
 ---
 
-### Module 1 — 数据准备：PD-1/PD-L1 界面 & 纳米抗体种子
+### Module 0 — Environment Setup and Path Initialization
 
-**目的**：获取 PD-1/PD-L1 共晶结构作为界面参考，加载 KN035 纳米抗体种子序列及 CDR 注释。
+**Purpose**: Unify project root `PATHS`, initialize Colab ↔ local sync mechanism.
 
-**前置依赖**：Module 0。
+**Prerequisites**: None.
 
-| 类型 | 路径 | 说明 |
+**Input**: GitHub repo `OmniScreen-AI` (Colab auto-clones to `/content/OmniScreen-AI`).
+
+**Method**:
+- Detect Colab / local environment, set `PROJECT_ROOT`
+- Define `PATHS = {receptor, raw, results}`
+- Provide `persist_to_github()` and `export_for_local_sync()` for data persistence
+
+**Output**: In-memory variables `PATHS`, `PROJECT_ROOT` (no files).
+
+**Compute**: Colab CPU, < 1 minute.
+
+**Migration scenarios**: Any Colab + Cursor collaboration project can copy the Module 0 template.
+
+> Module 0 is infrastructure; scientific content begins at Module 1. Environment and reproducibility details in [§2 Quick Start](#2-quick-start).
+
+---
+
+### Module 1 — Data Preparation: PD-1/PD-L1 Interface & Nanobody Seed
+
+**Purpose**: Obtain PD-1/PD-L1 co-crystal structure as interface reference, load KN035 nanobody seed sequence and CDR annotations.
+
+**Prerequisites**: Module 0.
+
+| Type | Path | Description |
 |------|------|------|
-| **输入（自动下载）** | — | PDB `4ZQK`（PD-1 / PD-L1 复合物） |
-| **输入（种子）** | `data/raw_libraries/pd_l1_nanobody_seed.fasta` | KN035 VHH，122 aa |
-| **输出** | `data/receptor/4ZQK.pdb` | 完整复合物 |
-| **输出** | `data/receptor/PDL1_4ZQK_chainB.pdb` | PD-L1 链（Module 3 受体） |
-| **输出** | `data/receptor/PD1_4ZQK_chainA.pdb` | PD-1 链（界面参考） |
-| **输出** | `data/raw_libraries/nanobody_cdr_regions.json` | CDR 区域 + PD-L1 热点残基 |
+| **Input (auto-download)** | — | PDB `4ZQK` (PD-1 / PD-L1 complex) |
+| **Input (seed)** | `data/raw_libraries/pd_l1_nanobody_seed.fasta` | KN035 VHH, 122 aa |
+| **Output** | `data/receptor/4ZQK.pdb` | Full complex |
+| **Output** | `data/receptor/PDL1_4ZQK_chainB.pdb` | PD-L1 chain (Module 3 receptor) |
+| **Output** | `data/receptor/PD1_4ZQK_chainA.pdb` | PD-1 chain (interface reference) |
+| **Output** | `data/raw_libraries/nanobody_cdr_regions.json` | CDR regions + PD-L1 hotspot residues |
 
-**方法**：
-- 从 RCSB 下载 `4ZQK.pdb`，按链拆分 PD-L1（Chain B）与 PD-1（Chain A）
-- 写入纳米抗体种子 FASTA 与 CDR 元数据 JSON
+**Method**:
+- Download `4ZQK.pdb` from RCSB, split PD-L1 (Chain B) and PD-1 (Chain A) by chain
+- Write nanobody seed FASTA and CDR metadata JSON
 
-**关键参数**：
+**Key parameters**:
 
-| 参数 | 值 | 说明 |
+| Parameter | Value | Description |
 |------|-----|------|
-| `RECEPTOR_PDB` | `4ZQK` | PD-1/PD-L1 复合物（Zak et al.） |
-| `PDL1_CHAIN` | `B` | 对接受体链 |
-| CDR 区域（Kabat 近似） | CDR1: 25–32, CDR2: 49–56, CDR3: 96–114 | 0-indexed 写入 JSON |
-| PD-L1 热点残基 | TYR56, MET115, ALA121, ASP122, LYS124, TYR123 | Module 3 界面评分用 |
+| `RECEPTOR_PDB` | `4ZQK` | PD-1/PD-L1 complex (Zak et al.) |
+| `PDL1_CHAIN` | `B` | Docking receptor chain |
+| CDR regions (Kabat approx.) | CDR1: 25–32, CDR2: 49–56, CDR3: 96–114 | 0-indexed in JSON |
+| PD-L1 hotspot residues | TYR56, MET115, ALA121, ASP122, LYS124, TYR123 | Module 3 interface scoring |
 
-**算力**：Colab CPU，< 2 分钟。
+**Compute**: Colab CPU, < 2 minutes.
 
-**可迁移场景**：
-- 换靶点：替换受体 PDB 与 `pdl1_hotspots`
-- 换抗体：替换 `SEED_SEQ` 并重新标注 CDR
+**Migration scenarios**:
+- Change target: replace receptor PDB and `pdl1_hotspots`
+- Change antibody: replace `SEED_SEQ` and re-annotate CDR
 
 ---
 
-### Module 2 — ESM-2 CDR 饱和突变与序列打分
+### Module 2 — ESM-2 CDR Saturation Mutagenesis and Sequence Scoring
 
-**目的**：对 CDR 区域进行单点饱和突变，用 ESM-2 计算突变相对野生型的 log-likelihood 变化（ΔLL），快速缩小序列搜索空间。
+**Purpose**: Perform single-point saturation mutagenesis on CDR regions, use ESM-2 to compute log-likelihood change (ΔLL) relative to wild-type, quickly narrow sequence search space.
 
-**前置依赖**：Module 0、Module 1。
+**Prerequisites**: Module 0, Module 1.
 
-**输入**：
+**Input**:
 
-| 文件 | 说明 |
+| File | Description |
 |------|------|
-| `nanobody_cdr_regions.json` | 野生型序列与 CDR 边界 |
-| `pd_l1_nanobody_seed.fasta` | 种子序列备份 |
+| `nanobody_cdr_regions.json` | Wild-type sequence and CDR boundaries |
+| `pd_l1_nanobody_seed.fasta` | Seed sequence backup |
 
-**方法**：
+**Method**:
 
-| 步骤 | 工具 | 说明 |
+| Step | Tool | Description |
 |------|------|------|
-| 突变库生成 | 自定义 `iter_cdr_mutations` | 对指定 CDR 每位点做 19 种氨基酸替换 |
-| 序列打分 | ESM-2 | 平均 token log-probability |
-| ΔLL 计算 | `mut_ll - wt_ll` | 写入 `esm_score` |
+| Mutagenesis library generation | Custom `iter_cdr_mutations` | 19 amino acid substitutions at each position in specified CDR |
+| Sequence scoring | ESM-2 | Average token log-probability |
+| ΔLL calculation | `mut_ll - wt_ll` | Written to `esm_score` |
 
-**关键参数**：
+**Key parameters**:
 
-| 参数 | 默认值 | 说明 |
+| Parameter | Default | Description |
 |------|--------|------|
-| `SCAN_REGIONS` | `["CDR3"]` | 可扩展为 `["CDR1","CDR2","CDR3"]` |
-| `MAX_MUTATIONS` | `400` | 突变数量上限 |
-| `MODEL_NAME` | `esm2_t6_8M_UR50D` | Colab 友好小模型；GPU 可换 `esm2_t12_35M_UR50D` |
+| `SCAN_REGIONS` | `["CDR3"]` | Can extend to `["CDR1","CDR2","CDR3"]` |
+| `MAX_MUTATIONS` | `400` | Upper limit on mutation count |
+| `MODEL_NAME` | `esm2_t6_8M_UR50D` | Colab-friendly small model; GPU can use `esm2_t12_35M_UR50D` |
 
-**输出**：`data/screened_results/mutation_scores.csv`
+**Output**: `data/screened_results/mutation_scores.csv`
 
-**判定标准**：
-- `esm_score > 0`：突变序列在 ESM-2 意义下优于或等于野生型趋势（ΔLL 为正）
-- 排序：**`esm_score` 越高越好**（降序取 Top N）
+**Criteria**:
+- `esm_score > 0`: Mutant sequence trends better than or equal to wild-type in ESM-2 terms (positive ΔLL)
+- Ranking: **higher `esm_score` is better** (descending, take Top N)
 
-**当前运行结果**：
-- 生成 **361** 条 CDR3 饱和突变（19 aa × 19 位点）
-- **Top 1**：`CDR3_P98KV`（P98K→V），`esm_score = 0.0150`
-- 多位点 P98、P109 附近突变占据 Top 榜（与 CDR3 环区柔性相关）
+**Current run results**:
+- Generated **361** CDR3 saturation mutations (19 aa × 19 positions)
+- **Top 1**: `CDR3_P98KV` (P98K→V), `esm_score = 0.0150`
+- Multiple P98, P109 vicinity mutations dominate Top list (related to CDR3 loop flexibility)
 
-**算力**：Colab GPU 推荐，约 **5–15 分钟**；CPU 约 **20–40 分钟**。
+**Compute**: Colab GPU recommended, ~**5–15 minutes**; CPU ~**20–40 minutes**.
 
-**可迁移场景**：
-- **全 CDR 扫描**：修改 `SCAN_REGIONS`，突变数可达数千
-- **定向进化模拟**：仅允许疏水 / 带电子集突变
-- **双点突变**：在 Module 2 后增加组合枚举子模块
+**Migration scenarios**:
+- **Full CDR scan**: Modify `SCAN_REGIONS`, mutations can reach thousands
+- **Directed evolution simulation**: Allow only hydrophobic / charged mutations
+- **Double mutations**: Add combinatorial enumeration submodule after Module 2
 
-#### 结果解读（Module 2 可视化）
+#### Result Interpretation (Module 2 Visualization)
 
-##### 图 5a — CDR3 饱和突变 DMS 热图
+##### Figure 5a — CDR3 Saturation Mutagenesis DMS Heatmap
 
-![图 5a：CDR3 DMS 热图](../../data/screened_results/figures/fig5a_cdr3_dms_heatmap.png)
+![Figure 5a: CDR3 DMS heatmap](../../data/screened_results/figures/fig5a_cdr3_dms_heatmap.png)
 
-| 项目 | 说明 |
+| Item | Description |
 |------|------|
-| **图意** | 行 = 突变氨基酸，列 = CDR3 位点；颜色 = ESM-2 ΔLL（红正蓝负） |
-| **读图要点** | 黑框标出野生型残基；同一列中偏红表示该位点偏好特定替换 |
-| **本数据结论** | P98、P109 等位点对多种带电/疏水氨基酸容忍度较高；部分位点对突变敏感（深蓝） |
-| **含义与局限** | 反映序列模型偏好，非结合亲和力；需 Module 3/4 结构验证 |
+| **Plot meaning** | Rows = mutant amino acids, columns = CDR3 positions; color = ESM-2 ΔLL (red positive, blue negative) |
+| **Reading tips** | Black box marks wild-type residue; redder in same column indicates preference for specific substitution at that position |
+| **Data conclusion** | Positions P98, P109 tolerate many charged/hydrophobic amino acids; some positions are mutation-sensitive (deep blue) |
+| **Meaning & limitations** | Reflects sequence model preference, not binding affinity; needs Module 3/4 structural validation |
 
-##### 图 5b — ESM 得分分布
+##### Figure 5b — ESM Score Distribution
 
-![图 5b：ESM 分布](../../data/screened_results/figures/fig5b_esm_score_distribution.png)
+![Figure 5b: ESM distribution](../../data/screened_results/figures/fig5b_esm_score_distribution.png)
 
-| 项目 | 说明 |
+| Item | Description |
 |------|------|
-| **图意** | 361 条突变 ΔLL 的直方图，虚线为 WT（0）与中位数 |
-| **读图要点** | 分布右偏说明部分突变优于野生型；负值区为不利突变 |
-| **本数据结论** | 仅少数突变 ΔLL > 0，符合随机饱和突变预期 |
-| **含义与局限** | 不能从分布直接推断实验成功率 |
+| **Plot meaning** | Histogram of 361 mutation ΔLL values; dashed lines for WT (0) and median |
+| **Reading tips** | Right-skewed distribution indicates some mutants better than wild-type; negative region = unfavorable mutations |
+| **Data conclusion** | Only a few mutations have ΔLL > 0, consistent with random saturation mutagenesis expectation |
+| **Meaning & limitations** | Cannot directly infer experimental success rate from distribution |
 
-##### 图 5c — Top-20 突变体排名
+##### Figure 5c — Top-20 Mutant Ranking
 
-![图 5c：Top-20 排名](../../data/screened_results/figures/fig5c_top20_mutants_ranking.png)
+![Figure 5c: Top-20 ranking](../../data/screened_results/figures/fig5c_top20_mutants_ranking.png)
 
-| 项目 | 说明 |
+| Item | Description |
 |------|------|
-| **图意** | 按 `esm_score` 降序的 Top 20 横向条形图 |
-| **本数据结论** | **CDR3_P98KV** 居首；Top 20 多集中在 P98X / P109X 取代 |
-| **含义与局限** | 此排名为 Module 3 的输入列表，非最终推荐 |
+| **Plot meaning** | Horizontal bar chart of Top 20 by `esm_score` descending |
+| **Data conclusion** | **CDR3_P98KV** ranks first; Top 20 mostly P98X / P109X substitutions |
+| **Meaning & limitations** | This ranking is Module 3 input list, not final recommendation |
 
-##### 图 5d — 逐位点突变耐受曲线
+##### Figure 5d — Per-Position Mutation Tolerance Profile
 
-![图 5d：位点 profile](../../data/screened_results/figures/fig5d_position_profile.png)
+![Figure 5d: Position profile](../../data/screened_results/figures/fig5d_position_profile.png)
 
-| 项目 | 说明 |
+| Item | Description |
 |------|------|
-| **图意** | 每位点 ΔLL 均值曲线，阴影为 min–max 范围 |
-| **读图要点** | 峰值位点 = 突变容忍度高；平坦或负值区 = 保守位点 |
-| **本数据结论** | CDR3 中段（约 98–109）平均 ΔLL 相对较高 |
-| **含义与局限** | 指导下一轮饱和突变或组合设计 |
+| **Plot meaning** | Mean ΔLL curve per position, shaded min–max range |
+| **Reading tips** | Peak positions = high mutation tolerance; flat or negative regions = conserved positions |
+| **Data conclusion** | Mid CDR3 region (~98–109) has relatively higher mean ΔLL |
+| **Meaning & limitations** | Guides next-round saturation or combinatorial design |
 
 ---
 
-### Module 3 — 蛋白-蛋白对接与界面评分
+### Module 3 — Protein–Protein Docking and Interface Scoring
 
-**目的**：对 Module 2 Top N 突变体生成纳米抗体结构，评估其与 PD-L1 界面的接触质量，输出 PPI 综合得分。
+**Purpose**: Generate nanobody structures for Module 2 Top N mutants, evaluate contact quality at PD-L1 interface, output combined PPI score.
 
-**前置依赖**：Module 0–2。
+**Prerequisites**: Module 0–2.
 
-**输入**：
+**Input**:
 
-| 文件 | 说明 |
+| File | Description |
 |------|------|
-| `mutation_scores.csv` | Top N 突变序列（默认 N=20） |
-| `PDL1_4ZQK_chainB.pdb` | PD-L1 受体结构 |
-| `nanobody_cdr_regions.json` | 热点残基编号 |
+| `mutation_scores.csv` | Top N mutant sequences (default N=20) |
+| `PDL1_4ZQK_chainB.pdb` | PD-L1 receptor structure |
+| `nanobody_cdr_regions.json` | Hotspot residue numbering |
 
-**方法**：
+**Method**:
 
 ```text
-突变序列  →  ESMFold（GPU）或 extended-CA（CPU 回退）  →  nanobody.pdb
-nanobody + PD-L1  →  界面接触统计（5 Å CA-CA）  →  ppi_score
-可选：HDOCKlite  →  hdock_score
+Mutant sequence  →  ESMFold (GPU) or extended-CA (CPU fallback)  →  nanobody.pdb
+nanobody + PD-L1  →  Interface contact statistics (5 Å CA-CA)  →  ppi_score
+Optional: HDOCKlite  →  hdock_score
 ```
 
-**关键参数**：
+**Key parameters**:
 
-| 参数 | 默认值 | 说明 |
+| Parameter | Default | Description |
 |------|--------|------|
-| `TOP_N` | `20` | 从 Module 2 取前 N 条突变 |
-| `CONTACT_CUTOFF` | `5.0` Å | CA 接触距离阈值 |
-| `USE_ESMFOLD_ON_CPU` | `False` | CPU 上禁用 ESMFold，使用 extended-CA |
-| PPI 打分公式 | `hotspot×2 + contacts×0.1 − min_dist` | 热点加权界面分 |
+| `TOP_N` | `20` | Take top N mutations from Module 2 |
+| `CONTACT_CUTOFF` | `5.0` Å | CA contact distance threshold |
+| `USE_ESMFOLD_ON_CPU` | `False` | Disable ESMFold on CPU, use extended-CA |
+| PPI scoring formula | `hotspot×2 + contacts×0.1 − min_dist` | Hotspot-weighted interface score |
 
-**输出**：
+**Output**:
 
-| 文件 | 说明 |
+| File | Description |
 |------|------|
-| `ppi_docking_scores.csv` | 突变体界面评分汇总 |
-| `pe_docking/{mut_id}.pdb` | 纳米抗体结构（extended-CA 或 ESMFold） |
+| `ppi_docking_scores.csv` | Mutant interface score summary |
+| `pe_docking/{mut_id}.pdb` | Nanobody structure (extended-CA or ESMFold) |
 
-**判定标准**：
-- `status == ok`：结构文件生成且界面评分成功
-- 排序：综合 `esm_score` 与 `ppi_score`（当前演示中 PPI 指标相同，实质以 ESM 区分）
+**Criteria**:
+- `status == ok`: Structure file generated and interface scoring succeeded
+- Ranking: Combined `esm_score` and `ppi_score` (in current demo PPI metrics are identical, effectively distinguished by ESM)
 
-**当前运行结果（CPU / extended-CA）**：
+**Current run results (CPU / extended-CA)**:
 
-| 指标 | 值 | 说明 |
+| Metric | Value | Description |
 |------|-----|------|
-| 对接数量 | 20 / 20 ok | 全部成功 |
-| `fold_method` | `extended_ca` | 粗模，非全原子折叠 |
-| `ppi_score` | 19.766（全部相同） | 几何一致导致指标饱和 |
-| `hotspot_contacts` | 9 | 与 6 个 PD-L1 热点中 9 个接触计数一致 |
-| `min_distance_A` | 1.034 | 最近 CA 距离（Å） |
+| Docking count | 20 / 20 ok | All succeeded |
+| `fold_method` | `extended_ca` | Coarse model, not all-atom fold |
+| `ppi_score` | 19.766 (all identical) | Consistent geometry causes metric saturation |
+| `hotspot_contacts` | 9 | Consistent with contact count to 9 of 6 PD-L1 hotspots |
+| `min_distance_A` | 1.034 | Nearest CA distance (Å) |
 
-**算力**：Colab CPU + extended-CA，约 **2–5 分钟**；ESMFold 需 GPU，约 **10–30 分钟**（20 条）。
+**Compute**: Colab CPU + extended-CA, ~**2–5 minutes**; ESMFold needs GPU, ~**10–30 minutes** (20 entries).
 
-**可迁移场景**：
-- **GPU 启用 ESMFold**：设置 Colab GPU 或 `USE_ESMFOLD_ON_CPU = True`（需 openfold）
-- **完整 HDOCKlite 对接**：安装 `tools/hdocklite`，获得 `hdock_score`
-- **换受体构象**：使用 MD 松弛后的 PD-L1 结构
+**Migration scenarios**:
+- **Enable ESMFold on GPU**: Set Colab GPU or `USE_ESMFOLD_ON_CPU = True` (requires openfold)
+- **Full HDOCKlite docking**: Install `tools/hdocklite`, obtain `hdock_score`
+- **Change receptor conformation**: Use MD-relaxed PD-L1 structure
 
-#### 结果解读（Module 3 可视化）
+#### Result Interpretation (Module 3 Visualization)
 
-##### 图 6a — PPI 界面接触指标
+##### Figure 6a — PPI Interface Contact Metrics
 
-![图 6a：界面接触](../../data/screened_results/figures/fig6a_ppi_interface_contacts.png)
+![Figure 6a: Interface contacts](../../data/screened_results/figures/fig6a_ppi_interface_contacts.png)
 
-| 项目 | 说明 |
+| Item | Description |
 |------|------|
-| **图意** | 双柱对比：总接触数 vs 热点接触数（5 Å 内） |
-| **读图要点** | 热点接触占比高更优；需结合 min_dist 看界面紧密程度 |
-| **本数据结论** | 20 个突变体指标相同（extended-CA 几何一致），**无法在此阶段区分界面优劣** |
-| **含义与局限** | 仅验证流程；需 ESMFold/AF3 后才能做真实界面比较 |
+| **Plot meaning** | Dual-bar comparison: total contacts vs hotspot contacts (within 5 Å) |
+| **Reading tips** | Higher hotspot contact fraction is better; combine with min_dist for interface tightness |
+| **Data conclusion** | All 20 mutants have identical metrics (extended-CA consistent geometry), **cannot distinguish interface quality at this stage** |
+| **Meaning & limitations** | Workflow validation only; real interface comparison needs ESMFold/AF3 |
 
-##### 图 6b — ESM 得分 vs PPI 得分
+##### Figure 6b — ESM Score vs PPI Score
 
-![图 6b：ESM vs PPI](../../data/screened_results/figures/fig6b_esm_vs_ppi_scatter.png)
+![Figure 6b: ESM vs PPI](../../data/screened_results/figures/fig6b_esm_vs_ppi_scatter.png)
 
-| 项目 | 说明 |
+| Item | Description |
 |------|------|
-| **图意** | 横轴 ESM ΔLL，纵轴 PPI score；颜色 = hotspot contacts |
-| **本数据结论** | 点沿水平线分布（PPI 相同），**区分度完全来自 ESM 轴** |
-| **含义与局限** | Module 4 之前不宜宣称「双准则优化」 |
+| **Plot meaning** | X-axis ESM ΔLL, Y-axis PPI score; color = hotspot contacts |
+| **Data conclusion** | Points along horizontal line (identical PPI), **discrimination entirely from ESM axis** |
+| **Meaning & limitations** | Before Module 4, avoid claiming "dual-criterion optimization" |
 
 ---
 
-### Module 4 — AlphaFold 3 界面高精度验证
+### Module 4 — AlphaFold 3 Interface High-Precision Validation
 
-**目的**：解析 AlphaFold Server 下载的 Top 5 纳米抗体–PD-L1 复合物，用 ipTM / pTM 做相对排序，并导出最佳 CIF + 3D 预览。
+**Purpose**: Parse Top 5 nanobody–PD-L1 complexes downloaded from AlphaFold Server, rank by ipTM / pTM, export best CIF + 3D preview.
 
-**前置依赖**：Module 3；AF3 结果解压至 `data/screened_results/af3_server/pe/pe_cdr3_*_pdl1/`。
+**Prerequisites**: Module 3; AF3 results extracted to `data/screened_results/af3_server/pe/pe_cdr3_*_pdl1/`.
 
-**输入**：
+**Input**:
 
-| 文件 | 说明 |
+| File | Description |
 |------|------|
-| `af3_server/pe/batch_top5.json` | 上传用 JSON（已生成） |
-| `af3_server/pe/pe_cdr3_*_pdl1/` | Server zip 解压目录 |
-| `ppi_docking_scores.csv` | 可选合并 ESM / PPI 分数 |
+| `af3_server/pe/batch_top5.json` | Upload JSON (already generated) |
+| `af3_server/pe/pe_cdr3_*_pdl1/` | Server zip extraction directory |
+| `ppi_docking_scores.csv` | Optional merge of ESM / PPI scores |
 
-**方法**：
+**Method**:
 
 ```text
 AF3 Server zip
-  → 解析 summary_confidences（iptm / ptm / ranking_score / chain_pair_iptm）
-  → 按 ranking_score 取最佳模型
-  → 复制 *_best.cif → af3_pe_complexes/
-  → 合并 esm_score / ppi_score
-  → 绘制 ipTM 排名图 + Top1 py3Dmol HTML
+  → Parse summary_confidences (iptm / ptm / ranking_score / chain_pair_iptm)
+  → Select best model by ranking_score
+  → Copy *_best.cif → af3_pe_complexes/
+  → Merge esm_score / ppi_score
+  → Plot ipTM ranking + Top1 py3Dmol HTML
 ```
 
-**关键读数参考**：
+**Key metric references**:
 
-| 指标 | 参考 | 说明 |
+| Metric | Reference | Description |
 |------|------|------|
-| ipTM | ≥ 0.6 较可信 | 界面置信度；本批用于相对排序 |
-| pTM | — | 整体折叠置信度 |
-| chain_pair_iptm_AB | — | 纳米抗体–PD-L1 链对 ipTM |
-| has_clash | 应为 0 | 立体冲突 |
+| ipTM | ≥ 0.6 more reliable | Interface confidence; this batch used for relative ranking |
+| pTM | — | Overall fold confidence |
+| chain_pair_iptm_AB | — | Nanobody–PD-L1 chain-pair ipTM |
+| has_clash | Should be 0 | Steric clash |
 
-**输出**：
+**Output**:
 
-| 文件 | 说明 |
+| File | Description |
 |------|------|
 | `af3_pe_metrics.csv` | ipTM / pTM / ranking + ESM/PPI |
-| `af3_pe_complexes/*_best.cif` | 各突变体最佳模型 |
-| `figures/fig_pe_af3_iptm_ranking.png` | ipTM 排名图 |
-| `figures/fig_pe_af3_complex.html` | Top1 交互 3D |
-| `figures/fig_pe_af3_complex.png` | Top1 复合物 PyMOL cartoon 快照 |
+| `af3_pe_complexes/*_best.cif` | Best model per mutant |
+| `figures/fig_pe_af3_iptm_ranking.png` | ipTM ranking plot |
+| `figures/fig_pe_af3_complex.html` | Top1 interactive 3D |
+| `figures/fig_pe_af3_complex.png` | Top1 complex PyMOL cartoon snapshot |
 
-**当前运行结果（最佳模型）**：
+**Current run results (best models)**:
 
-| 突变体 | ipTM | pTM | pair_iptm | ESM ΔLL | ranking |
+| Mutant | ipTM | pTM | pair_iptm | ESM ΔLL | ranking |
 |--------|------|-----|-----------|---------|---------|
 | **CDR3_P98KV** | **0.28** | 0.60 | 0.28 | 0.0150 | 0.35 |
 | CDR3_P98KA | 0.26 | 0.59 | 0.26 | 0.0142 | 0.33 |
@@ -464,95 +464,95 @@ AF3 Server zip
 | CDR3_P98KP | 0.21 | 0.57 | 0.21 | 0.0120 | 0.29 |
 | CDR3_P98KL | 0.17 | 0.54 | 0.17 | 0.0129 | 0.25 |
 
-全部 `has_clash = 0`。ipTM 均 < 0.3，**无一越过 0.6 参考线**；相对排序与 ESM Top 方向一致（P98KV 最好）。
+All `has_clash = 0`. ipTM all < 0.3, **none cross 0.6 reference line**; relative ranking aligns with ESM Top direction (P98KV best).
 
-**算力**：AF3 Server（半自动）+ 本地/Colab CPU 解析，< 1 分钟。
+**Compute**: AF3 Server (semi-automated) + local/Colab CPU parsing, < 1 minute.
 
-#### 结果解读（Module 4 可视化）
+#### Result Interpretation (Module 4 Visualization)
 
-##### 图 PE-AF3 — ipTM 界面置信度排名
+##### Figure PE-AF3 — ipTM Interface Confidence Ranking
 
-![图 PE-AF3：ipTM 排名](../../data/screened_results/figures/fig_pe_af3_iptm_ranking.png)
+![Figure PE-AF3: ipTM ranking](../../data/screened_results/figures/fig_pe_af3_iptm_ranking.png)
 
-| 项目 | 说明 |
+| Item | Description |
 |------|------|
-| **图意** | Top 5 纳米抗体–PD-L1 复合物按 ipTM 横向条形图；橙色为最优；红虚线为 ipTM≈0.6 |
-| **读图要点** | 条越长界面越可信；本批全部低于虚线，宜作相对比较而非绝对采信 |
-| **本数据结论** | **CDR3_P98KV（ipTM=0.28）** 排名第一；P98KL（0.17）最弱 |
-| **含义与局限** | 单体折叠尚可（pTM~0.54–0.60），界面不确定。可能因 PD-L1 仅用 4ZQK 短 IgV（106 aa）或 CDR3 单点差异有限 |
+| **Plot meaning** | Top 5 nanobody–PD-L1 complexes horizontal bar chart by ipTM; orange = best; red dashed line at ipTM≈0.6 |
+| **Reading tips** | Longer bar = more credible interface; this batch all below dashed line, use for relative comparison not absolute trust |
+| **Data conclusion** | **CDR3_P98KV (ipTM=0.28)** ranks first; P98KL (0.17) weakest |
+| **Meaning & limitations** | Monomer fold acceptable (pTM~0.54–0.60), interface uncertain. May be due to PD-L1 using only short 4ZQK IgV (106 aa) or limited CDR3 single-point differences |
 
-##### 图 PE-AF3 — Top1 复合物 3D
+##### Figure PE-AF3 — Top1 Complex 3D
 
-![图 PE-AF3：Top1 摘要](../../data/screened_results/figures/fig_pe_af3_complex.png)
+![Figure PE-AF3: Top1 summary](../../data/screened_results/figures/fig_pe_af3_complex.png)
 
-| 项目 | 说明 |
+| Item | Description |
 |------|------|
-| **图意** | Top1（`CDR3_P98KV`）PyMOL cartoon 静态截图：蓝=纳米抗体（链 A），橙=靶蛋白（链 B） |
-| **交互版** | 打开 [`fig_pe_af3_complex.html`](../../data/screened_results/figures/fig_pe_af3_complex.html) 可旋转缩放 |
-| **结构文件** | `af3_pe_complexes/CDR3_P98KV_best.cif` |
-| **本数据结论** | ipTM=0.28，pTM=0.60，model=1；双色 cartoon 展示界面相对位置 |
-| **含义与局限** | 静态预测截图；不宜直接当作实验结合姿态；Module 5 MM-GBSA 可进一步评估能量 |
+| **Plot meaning** | Top1 (`CDR3_P98KV`) PyMOL cartoon static snapshot: blue=nanobody (chain A), orange=target protein (chain B) |
+| **Interactive version** | Open [`fig_pe_af3_complex.html`](../../data/screened_results/figures/fig_pe_af3_complex.html) to rotate and zoom |
+| **Structure file** | `af3_pe_complexes/CDR3_P98KV_best.cif` |
+| **Data conclusion** | ipTM=0.28, pTM=0.60, model=1; dual-color cartoon shows relative interface positioning |
+| **Meaning & limitations** | Static prediction snapshot; not directly usable as experimental binding pose; Module 5 MM-GBSA can further assess energy |
 
 ---
 
-### Module 5 — 结合自由能解析（OpenMM MM-GBSA）
+### Module 5 — Binding Free Energy Analysis (OpenMM MM-GBSA)
 
-**目的**：对 Module 4 的 AF3 纳米抗体–靶蛋白复合物做 OpenMM MM-GBSA，估算结合自由能 ΔG_bind，并对界面残基做 VDW/ELE 拆解（HawkDock 风格相对归因）。
+**Purpose**: Run OpenMM MM-GBSA on Module 4 AF3 nanobody–target protein complexes, estimate binding free energy ΔG_bind, and decompose interface residues into VDW/ELE (HawkDock-style relative attribution).
 
-**前置依赖**：Module 4（`af3_pe_metrics.csv` + `af3_pe_complexes/*_best.cif`）；CUDA 可用的 OpenMM 环境。
+**Prerequisites**: Module 4 (`af3_pe_metrics.csv` + `af3_pe_complexes/*_best.cif`); CUDA-capable OpenMM environment.
 
-**输入**：
+**Input**:
 
-| 文件 | 说明 |
+| File | Description |
 |------|------|
-| `af3_pe_metrics.csv` | AF3 Top 复合物清单（含 ipTM / ESM / PPI） |
-| `af3_pe_complexes/{mut_id}_best.cif` | AF3 最佳模型（链 A = 纳米抗体，链 B = 靶蛋白） |
+| `af3_pe_metrics.csv` | AF3 Top complex list (with ipTM / ESM / PPI) |
+| `af3_pe_complexes/{mut_id}_best.cif` | AF3 best model (chain A = nanobody, chain B = target protein) |
 
-**方法**：
+**Method**:
 
 ```text
 AF3 CIF
-  → PDBFixer 补全缺失原子 / 加氢
-  → Amber14 + GBn2 隐式溶剂建系
-  → CUDA 能量最小化
+  → PDBFixer fill missing atoms / add hydrogens
+  → Amber14 + GBn2 implicit solvent system setup
+  → CUDA energy minimization
   → ΔG_bind ≈ E(complex) − E(receptor) − E(ligand)
-  → 界面残基（≤5 Å）配对 VDW + ELE 拆解
-  → 写出 CSV + 排名 / 残基贡献 / ΔG–ipTM 图
+  → Interface residues (≤5 Å) paired VDW + ELE decomposition
+  → Write CSV + ranking / residue contribution / ΔG–ipTM plots
 ```
 
-脚本入口：[`scripts/pe_module5_mmgbsa.py`](../../scripts/pe_module5_mmgbsa.py)。Notebook Module 5 cell 调用该脚本；已有结果时默认跳过重算（`FORCE_RERUN=1` 强制重跑）。
+Script entry: [`scripts/pe_module5_mmgbsa.py`](../../scripts/pe_module5_mmgbsa.py). Notebook Module 5 cell calls this script; skips recompute by default when results exist (`FORCE_RERUN=1` forces rerun).
 
-**关键参数**：
+**Key parameters**:
 
-| 参数 | 默认值 | 说明 |
+| Parameter | Default | Description |
 |------|--------|------|
-| 力场 | `amber14-all.xml` + `implicit/gbn2.xml` | 蛋白 + GBn2 隐式溶剂 |
-| 平台 | CUDA（`Precision=mixed`） | A100 / 兼容 NVIDIA GPU |
-| 最小化 | `maxIterations=200` | OpenMM `minimizeEnergy` |
-| 非键截断 | 2.0 nm | `CutoffNonPeriodic` |
-| 界面定义 | 重原子 min dist ≤ 0.5 nm | 纳米抗体链 A 相对靶蛋白链 B |
-| 残基拆解 | 配对 Coulomb + LJ（≤2.0 nm） | 不含完整 GB 项分摊 |
+| Force field | `amber14-all.xml` + `implicit/gbn2.xml` | Protein + GBn2 implicit solvent |
+| Platform | CUDA (`Precision=mixed`) | A100 / compatible NVIDIA GPU |
+| Minimization | `maxIterations=200` | OpenMM `minimizeEnergy` |
+| Nonbonded cutoff | 2.0 nm | `CutoffNonPeriodic` |
+| Interface definition | Heavy-atom min dist ≤ 0.5 nm | Nanobody chain A relative to target chain B |
+| Residue decomposition | Paired Coulomb + LJ (≤2.0 nm) | Does not include full GB term allocation |
 
-**输出**：
+**Output**:
 
-| 文件 | 说明 |
+| File | Description |
 |------|------|
-| `ppi_mmgbsa_summary.csv` | 各突变体 ΔG_bind + 合并 ipTM/ESM |
-| `ppi_energy_decomposition.csv` | 界面残基 VDW/ELE 贡献 |
-| `pe_complexes/{mut_id}_min.pdb` | 最小化后复合物 |
-| `figures/fig_pe_mmgbsa_ranking.png` | ΔG 排序（图 7b） |
-| `figures/fig_pe_residue_energy_decomposition.png` | Top 突变体残基拆解（图 7c） |
-| `figures/fig_pe_mmgbsa_vs_iptm.png` | ΔG vs ipTM（图 7d） |
-| `ppi_mmgbsa_meta.json` | 方法元数据 |
+| `ppi_mmgbsa_summary.csv` | Per-mutant ΔG_bind + merged ipTM/ESM |
+| `ppi_energy_decomposition.csv` | Interface residue VDW/ELE contributions |
+| `pe_complexes/{mut_id}_min.pdb` | Minimized complex |
+| `figures/fig_pe_mmgbsa_ranking.png` | ΔG ranking (Figure 7b) |
+| `figures/fig_pe_residue_energy_decomposition.png` | Top mutant residue decomposition (Figure 7c) |
+| `figures/fig_pe_mmgbsa_vs_iptm.png` | ΔG vs ipTM (Figure 7d) |
+| `ppi_mmgbsa_meta.json` | Method metadata |
 
-**判定标准**：
-- **`dG_bind_kcalmol` 越负越好**（结合更有利）
-- 残基级：`E_residue_kJmol` 越负表示该纳米抗体残基与靶蛋白吸引越强
-- 建议与 Module 4 `iptm` 联读：能量优且 ipTM 相对靠前者优先
+**Criteria**:
+- **More negative `dG_bind_kcalmol` is better** (more favorable binding)
+- Residue level: more negative `E_residue_kJmol` indicates stronger nanobody residue attraction to target
+- Recommend reading with Module 4 `iptm`: prioritize those with favorable energy and relatively high ipTM
 
-**当前运行结果（5 个 AF3 复合物，A100 CUDA）**：
+**Current run results (5 AF3 complexes, A100 CUDA)**:
 
-| 排名 | 突变体 | ΔG (kcal/mol) | ipTM | ESM ΔLL | 界面残基数 |
+| Rank | Mutant | ΔG (kcal/mol) | ipTM | ESM ΔLL | Interface residues |
 |------|--------|---------------|------|---------|------------|
 | 1 | **CDR3_P98KV** | **−65.10** | 0.28 | 0.0150 | 26 |
 | 2 | CDR3_P98KL | −63.14 | 0.17 | 0.0129 | 27 |
@@ -560,72 +560,72 @@ AF3 CIF
 | 4 | CDR3_P98KI | −37.53 | 0.25 | 0.0122 | 18 |
 | 5 | CDR3_P98KP | −32.34 | 0.21 | 0.0120 | 20 |
 
-**算力**：CUDA GPU（推荐 A100），约 **~1 分钟 / 复合物**（含最小化与拆解）；5 个约 **5–8 分钟**。
+**Compute**: CUDA GPU (A100 recommended), ~**~1 minute / complex** (including minimization and decomposition); 5 complexes ~**5–8 minutes**.
 
-**可迁移场景**：
-- **换 AF3 批次**：更新 `af3_pe_complexes/` 与 `af3_pe_metrics.csv` 后重跑脚本
-- **显式溶剂 MD**：在 Module 5 后增加 OpenMM tip3p 短轨迹，再做轨迹平均 MM-GBSA
-- **抗体亲和力成熟**：对 CDR 组合突变复合物批量能量排序
+**Migration scenarios**:
+- **Change AF3 batch**: Update `af3_pe_complexes/` and `af3_pe_metrics.csv` then rerun script
+- **Explicit-solvent MD**: Add OpenMM tip3p short trajectory after Module 5, then trajectory-averaged MM-GBSA
+- **Antibody affinity maturation**: Batch energy ranking for CDR combinatorial mutant complexes
 
-#### 结果解读（Module 5 可视化）
+#### Result Interpretation (Module 5 Visualization)
 
-##### 图 7b — MM-GBSA ΔG 排序
+##### Figure 7b — MM-GBSA ΔG Ranking
 
-![图 7b：MM-GBSA 排序](../../data/screened_results/figures/fig_pe_mmgbsa_ranking.png)
+![Figure 7b: MM-GBSA ranking](../../data/screened_results/figures/fig_pe_mmgbsa_ranking.png)
 
-| 项目 | 说明 |
+| Item | Description |
 |------|------|
-| **图意** | AF3 Top 复合物按 `dG_bind_kcalmol` 升序（越负越好）柱状图 |
-| **读图要点** | 柱越向下（更负）结合越有利；需结合 ipTM 看结构置信 |
-| **本数据结论** | **CDR3_P98KV（−65.1）** 与 **CDR3_P98KL（−63.1）** 明显优于 P98KI/P98KP |
-| **含义与局限** | 隐式溶剂单点 ΔG，绝对值不可直接换算 Kd；用于相对排序 |
+| **Plot meaning** | AF3 Top complexes bar chart by `dG_bind_kcalmol` ascending (more negative is better) |
+| **Reading tips** | Bars extending downward (more negative) = more favorable binding; combine with ipTM for structural confidence |
+| **Data conclusion** | **CDR3_P98KV (−65.1)** and **CDR3_P98KL (−63.1)** clearly better than P98KI/P98KP |
+| **Meaning & limitations** | Implicit-solvent single-point ΔG; absolute values cannot directly convert to Kd; use for relative ranking |
 
-##### 图 7c — Top 突变体残基能量拆解
+##### Figure 7c — Top Mutant Residue Energy Decomposition
 
-![图 7c：残基拆解](../../data/screened_results/figures/fig_pe_residue_energy_decomposition.png)
+![Figure 7c: Residue decomposition](../../data/screened_results/figures/fig_pe_residue_energy_decomposition.png)
 
-| 项目 | 说明 |
+| Item | Description |
 |------|------|
-| **图意** | Top1（`CDR3_P98KV`）界面残基 VDW+ELE（kcal/mol）；红色 = 突变位点 |
-| **读图要点** | 越负贡献越大；关注 CDR / 框架界面残基是否主导吸引 |
-| **本数据结论** | 界面吸引主要由多处极性/芳香残基贡献；突变位点 P98 参与但非唯一主导 |
-| **含义与局限** | 真空配对能量，非完整 MM-GBSA 残基分摊；指导下一轮突变设计 |
+| **Plot meaning** | Top1 (`CDR3_P98KV`) interface residue VDW+ELE (kcal/mol); red = mutation site |
+| **Reading tips** | More negative = larger contribution; check whether CDR / framework interface residues dominate attraction |
+| **Data conclusion** | Interface attraction mainly from multiple polar/aromatic residues; mutation site P98 participates but is not sole driver |
+| **Meaning & limitations** | Vacuum-paired energy, not full MM-GBSA residue allocation; guides next-round mutation design |
 
-##### 图 7d — ΔG vs AF3 ipTM
+##### Figure 7d — ΔG vs AF3 ipTM
 
-![图 7d：ΔG vs ipTM](../../data/screened_results/figures/fig_pe_mmgbsa_vs_iptm.png)
+![Figure 7d: ΔG vs ipTM](../../data/screened_results/figures/fig_pe_mmgbsa_vs_iptm.png)
 
-| 项目 | 说明 |
+| Item | Description |
 |------|------|
-| **图意** | 横轴 AF3 ipTM，纵轴 MM-GBSA ΔG |
-| **读图要点** | 理想候选：左上/更负且 ipTM 相对高 |
-| **本数据结论** | P98KV 在能量与 ipTM 上均居前；P98KL 能量优但 ipTM 最低（0.17），需谨慎 |
-| **含义与局限** | 样本仅 5 点，不宜过度拟合相关 |
+| **Plot meaning** | X-axis AF3 ipTM, Y-axis MM-GBSA ΔG |
+| **Reading tips** | Ideal candidate: upper-left / more negative with relatively high ipTM |
+| **Data conclusion** | P98KV leads in both energy and ipTM; P98KL has favorable energy but lowest ipTM (0.17), use with caution |
+| **Meaning & limitations** | Only 5 data points, avoid overfitting correlation |
 
 ---
 
-### Module 6 — 可视化与结果导出
+### Module 6 — Visualization and Result Export
 
-**目的**：将 Module 2–5 数据汇总为图表；刷新筛选漏斗（含 AF3 / MM-GBSA 阶段），并集中展示 Module 4–5 图。
+**Purpose**: Aggregate Module 2–5 data into plots; refresh screening funnel (including AF3 / MM-GBSA stages), and centrally display Module 4–5 figures.
 
-**前置依赖**：`mutation_scores.csv`、`ppi_docking_scores.csv`；可选 `af3_pe_metrics.csv`、`ppi_mmgbsa_summary.csv`。
+**Prerequisites**: `mutation_scores.csv`, `ppi_docking_scores.csv`; optional `af3_pe_metrics.csv`, `ppi_mmgbsa_summary.csv`.
 
-**输出目录**：`data/screened_results/figures/`
+**Output directory**: `data/screened_results/figures/`
 
-**图号总览**：
+**Figure overview**:
 
 ```mermaid
 flowchart TB
-    subgraph M2["Module 2 数据"]
-        F5a[fig5a DMS 热图]
-        F5b[fig5b ESM 分布]
-        F5c[fig5c Top-20 排名]
-        F5d[fig5d 位点 profile]
+    subgraph M2["Module 2 data"]
+        F5a[fig5a DMS heatmap]
+        F5b[fig5b ESM distribution]
+        F5c[fig5c Top-20 ranking]
+        F5d[fig5d position profile]
     end
-    subgraph M3["Module 3 数据"]
-        F6a[fig6a PPI 接触]
+    subgraph M3["Module 3 data"]
+        F6a[fig6a PPI contacts]
         F6b[fig6b ESM vs PPI]
-        F6c[fig6c 筛选漏斗]
+        F6c[fig6c screening funnel]
     end
     subgraph M4["Module 4 ✅"]
         F7a[fig_pe_af3_* ipTM / 3D]
@@ -639,215 +639,215 @@ flowchart TB
     M3 --> F6a & F6b & F6c
     M4 --> F7a
     M5 --> F7b & F7c & F7d
-    F6c -.->|漏斗计入 AF3/MM-GBSA 数量| M4
+    F6c -.->|Funnel includes AF3/MM-GBSA counts| M4
     F6c -.-> M5
 ```
 
-**图号与数据归属**：
+**Figure numbers and data provenance**:
 
-| 图号 | 文件名 | 数据来源 |
+| Figure | Filename | Data source |
 |------|--------|----------|
-| 5a–5d | `fig5a_*` … `fig5d_*` | Module 2 → 解读见 [Module 2](#module-2--esm-2-cdr-饱和突变与序列打分) |
-| 6a–6c | `fig6a_*` … `fig6c_*` | Module 3（漏斗含 M4/M5 计数）→ 见下 |
-| 7a | `fig_pe_af3_*` | Module 4 → 解读见 [Module 4](#结果解读module-4-可视化) |
-| 7b–7d | `fig_pe_mmgbsa_*` / `fig_pe_residue_*` | Module 5 → 解读见 [Module 5](#结果解读module-5-可视化) |
+| 5a–5d | `fig5a_*` … `fig5d_*` | Module 2 → interpretation in [Module 2](#module-2--esm-2-cdr-saturation-mutagenesis-and-sequence-scoring) |
+| 6a–6c | `fig6a_*` … `fig6c_*` | Module 3 (funnel includes M4/M5 counts) → see below |
+| 7a | `fig_pe_af3_*` | Module 4 → interpretation in [Module 4](#result-interpretation-module-4-visualization) |
+| 7b–7d | `fig_pe_mmgbsa_*` / `fig_pe_residue_*` | Module 5 → interpretation in [Module 5](#result-interpretation-module-5-visualization) |
 
-##### 图 6c — PE 筛选漏斗（Modules 2→5）
+##### Figure 6c — PE Screening Funnel (Modules 2→5)
 
-![图 6c：筛选漏斗](../../data/screened_results/figures/fig6c_screening_funnel.png)
+![Figure 6c: Screening funnel](../../data/screened_results/figures/fig6c_screening_funnel.png)
 
-| 项目 | 说明 |
+| Item | Description |
 |------|------|
-| **图意** | 五阶段：CDR3 突变 → Top-20 对接 → ΔLL>0 → AF3 Top 复合物 → MM-GBSA 排序 |
-| **本数据结论** | **361 → 20 → 114 → 5 → 5**，后两阶对 AF3 上传的 Top5 做结构与能量闭环 |
-| **含义与局限** | AF3/MM-GBSA 仅覆盖 Top5，不是全库能量筛选 |
+| **Plot meaning** | Five stages: CDR3 mutations → Top-20 docking → ΔLL>0 → AF3 Top complexes → MM-GBSA ranking |
+| **Data conclusion** | **361 → 20 → 114 → 5 → 5**, last two stages close structure/energy loop on AF3-uploaded Top5 |
+| **Meaning & limitations** | AF3/MM-GBSA covers Top5 only, not full-library energy screening |
 
-> **关于 3D 结合图**：纳米抗体–靶蛋白全原子 3D 见 Module 4 的 `fig_pe_af3_complex.html`；能量排序见 Module 5 图 7b–7d。**DNA/RNA 结合 3D 属于 NA 线路**。
+> **About 3D binding figures**: Nanobody–target protein all-atom 3D see Module 4 `fig_pe_af3_complex.html`; energy ranking see Module 5 figures 7b–7d. **DNA/RNA binding 3D belongs to NA pipeline**.
 
 ---
 
-## 4. 数据字典
+## 4. Data Dictionary
 
-### 4.1 `mutation_scores.csv`（Module 2）
+### 4.1 `mutation_scores.csv` (Module 2)
 
-| 列名 | 类型 | 说明 |
+| Column | Type | Description |
 |------|------|------|
-| `mut_id` | str | 突变 ID，如 `CDR3_P98KV`（区域_位点野生型突变型） |
-| `cdr` | str | CDR 区域名（CDR1 / CDR2 / CDR3） |
-| `position` | int | 1-based 序列位点 |
-| `wt_aa` | str | 野生型氨基酸（单字母） |
-| `mut_aa` | str | 突变氨基酸 |
-| `sequence` | str | 完整突变序列 |
-| `wt_ll` | float | 野生型平均 log-likelihood |
-| `mut_ll` | float | 突变体平均 log-likelihood |
+| `mut_id` | str | Mutation ID, e.g. `CDR3_P98KV` (region_positionWTmutant) |
+| `cdr` | str | CDR region name (CDR1 / CDR2 / CDR3) |
+| `position` | int | 1-based sequence position |
+| `wt_aa` | str | Wild-type amino acid (single letter) |
+| `mut_aa` | str | Mutant amino acid |
+| `sequence` | str | Full mutant sequence |
+| `wt_ll` | float | Wild-type average log-likelihood |
+| `mut_ll` | float | Mutant average log-likelihood |
 | `delta_ll` | float | `mut_ll - wt_ll` |
-| `esm_score` | float | 与 `delta_ll` 相同，**越高越好** |
+| `esm_score` | float | Same as `delta_ll`, **higher is better** |
 
-### 4.2 `ppi_docking_scores.csv`（Module 3）
+### 4.2 `ppi_docking_scores.csv` (Module 3)
 
-| 列名 | 类型 | 说明 |
+| Column | Type | Description |
 |------|------|------|
-| `mut_id` | str | 突变 ID |
-| `sequence` | str | 突变序列 |
-| `esm_score` | float | Module 2 的 ΔLL |
-| `ppi_score` | float | 界面综合分（热点加权） |
-| `hotspot_contacts` | int | 与 PD-L1 热点残基的 5 Å 接触数 |
-| `min_distance_A` | float | 纳米抗体–PD-L1 最近 CA 距离（Å） |
-| `contact_count` | int | 总 CA 接触数（5 Å 内） |
-| `hdock_score` | float | HDOCKlite 分数（可选，空表示未运行） |
-| `nanobody_pdb` | str | 结构文件路径 |
+| `mut_id` | str | Mutation ID |
+| `sequence` | str | Mutant sequence |
+| `esm_score` | float | Module 2 ΔLL |
+| `ppi_score` | float | Combined interface score (hotspot weighted) |
+| `hotspot_contacts` | int | 5 Å contacts with PD-L1 hotspot residues |
+| `min_distance_A` | float | Nearest CA distance nanobody–PD-L1 (Å) |
+| `contact_count` | int | Total CA contacts (within 5 Å) |
+| `hdock_score` | float | HDOCKlite score (optional, empty if not run) |
+| `nanobody_pdb` | str | Structure file path |
 | `fold_method` | str | `extended_ca` / `esmfold` |
-| `status` | str | `ok` / 错误状态 |
+| `status` | str | `ok` / error status |
 
-### 4.3 `af3_pe_metrics.csv`（Module 4）
+### 4.3 `af3_pe_metrics.csv` (Module 4)
 
-| 列名 | 类型 | 说明 | 示例 |
+| Column | Type | Description | Example |
 |------|------|------|------|
-| `mut_id` | str | 突变 ID | `CDR3_P98KV` |
-| `job_dir` | str | AF3 结果目录 | `pe_cdr3_p98kv_pdl1` |
-| `model` | int | 最佳模型 0–4 | `1` |
-| `iptm` | float | 界面置信度 | `0.28` |
-| `ptm` | float | 整体折叠置信度 | `0.60` |
-| `ranking_score` | float | AF3 排序分 | `0.35` |
-| `chain_pair_iptm_AB` | float | 链对界面 ipTM | `0.28` |
-| `has_clash` | float | 是否碰撞 | `0.0` |
-| `esm_score` | float | 合并自 Module 2 | `0.015` |
-| `ppi_score` | float | 合并自 Module 3 | `19.766` |
-| `complex_cif` | str | 最佳 CIF 路径 | `data/.../CDR3_P98KV_best.cif` |
+| `mut_id` | str | Mutation ID | `CDR3_P98KV` |
+| `job_dir` | str | AF3 result directory | `pe_cdr3_p98kv_pdl1` |
+| `model` | int | Best model 0–4 | `1` |
+| `iptm` | float | Interface confidence | `0.28` |
+| `ptm` | float | Overall fold confidence | `0.60` |
+| `ranking_score` | float | AF3 ranking score | `0.35` |
+| `chain_pair_iptm_AB` | float | Chain-pair interface ipTM | `0.28` |
+| `has_clash` | float | Clash flag | `0.0` |
+| `esm_score` | float | Merged from Module 2 | `0.015` |
+| `ppi_score` | float | Merged from Module 3 | `19.766` |
+| `complex_cif` | str | Best CIF path | `data/.../CDR3_P98KV_best.cif` |
 
-### 4.4 `ppi_mmgbsa_summary.csv`（Module 5）
+### 4.4 `ppi_mmgbsa_summary.csv` (Module 5)
 
-| 列名 | 类型 | 说明 | 示例 |
+| Column | Type | Description | Example |
 |------|------|------|------|
-| `mut_id` | str | 突变 ID | `CDR3_P98KV` |
-| `iptm` / `ptm` / `ranking_score` | float | 合并自 Module 4 | `0.28` / `0.60` / `0.35` |
-| `esm_score` / `ppi_score` | float | 合并自 Module 2/3 | `0.015` / `19.766` |
-| `E_complex_kJmol` | float | 复合物势能 | — |
-| `E_receptor_kJmol` | float | 靶蛋白（链 B）势能 | — |
-| `E_ligand_kJmol` | float | 纳米抗体（链 A）势能 | — |
+| `mut_id` | str | Mutation ID | `CDR3_P98KV` |
+| `iptm` / `ptm` / `ranking_score` | float | Merged from Module 4 | `0.28` / `0.60` / `0.35` |
+| `esm_score` / `ppi_score` | float | Merged from Module 2/3 | `0.015` / `19.766` |
+| `E_complex_kJmol` | float | Complex potential energy | — |
+| `E_receptor_kJmol` | float | Target protein (chain B) potential energy | — |
+| `E_ligand_kJmol` | float | Nanobody (chain A) potential energy | — |
 | `dG_bind_kJmol` | float | `E_c − E_r − E_l` | — |
-| `dG_bind_kcalmol` | float | ΔG（kcal/mol），**越负越好** | `-65.10` |
-| `n_interface_residues` | int | 界面残基数 | `26` |
-| `complex_cif` | str | 输入 AF3 CIF | `.../CDR3_P98KV_best.cif` |
-| `minimized_pdb` | str | 最小化输出 | `.../CDR3_P98KV_min.pdb` |
+| `dG_bind_kcalmol` | float | ΔG (kcal/mol), **more negative is better** | `-65.10` |
+| `n_interface_residues` | int | Interface residue count | `26` |
+| `complex_cif` | str | Input AF3 CIF | `.../CDR3_P98KV_best.cif` |
+| `minimized_pdb` | str | Minimized output | `.../CDR3_P98KV_min.pdb` |
 
-### 4.5 `ppi_energy_decomposition.csv`（Module 5）
+### 4.5 `ppi_energy_decomposition.csv` (Module 5)
 
-| 列名 | 类型 | 说明 |
+| Column | Type | Description |
 |------|------|------|
-| `mut_id` | str | 突变 ID |
-| `chain` | str | 纳米抗体链（`A`） |
-| `resnum` / `resname` / `aa` | int/str | 残基编号与名称 |
-| `is_mutated_site` | bool | 是否为设计突变位点 |
-| `min_dist_nm` | float | 到靶蛋白最近重原子距离（nm） |
-| `E_vdw_kJmol` | float | 与靶蛋白配对范德华能 |
-| `E_elec_kJmol` | float | 与靶蛋白配对静电能 |
-| `E_residue_kJmol` | float | `VDW + ELE`，**越负贡献越大** |
+| `mut_id` | str | Mutation ID |
+| `chain` | str | Nanobody chain (`A`) |
+| `resnum` / `resname` / `aa` | int/str | Residue number and name |
+| `is_mutated_site` | bool | Whether designed mutation site |
+| `min_dist_nm` | float | Nearest heavy-atom distance to target (nm) |
+| `E_vdw_kJmol` | float | Paired van der Waals energy with target |
+| `E_elec_kJmol` | float | Paired electrostatic energy with target |
+| `E_residue_kJmol` | float | `VDW + ELE`, **more negative = larger contribution** |
 
-### 4.6 `nanobody_cdr_regions.json`（Module 1）
+### 4.6 `nanobody_cdr_regions.json` (Module 1)
 
-| 字段 | 说明 |
+| Field | Description |
 |------|------|
-| `seed_id` | 种子标识 |
-| `sequence` | 野生型氨基酸序列 |
-| `cdr_regions` | CDR1/2/3 起止位点（1-based inclusive） |
-| `pdl1_hotspots` | PD-L1 热点残基（三字母+编号） |
-| `receptor_pdb` | PD-L1 受体 PDB 路径 |
+| `seed_id` | Seed identifier |
+| `sequence` | Wild-type amino acid sequence |
+| `cdr_regions` | CDR1/2/3 start/end positions (1-based inclusive) |
+| `pdl1_hotspots` | PD-L1 hotspot residues (three-letter + number) |
+| `receptor_pdb` | PD-L1 receptor PDB path |
 
-### 4.7 图文件命名规范
+### 4.7 Figure File Naming Convention
 
-| 前缀 | 含义 |
+| Prefix | Meaning |
 |------|------|
-| `fig5a`–`fig5d` | CDR / ESM-2 突变分析（Module 2） |
-| `fig6a`–`fig6c` | PPI 界面与筛选漏斗（Module 3/6） |
-| `fig_pe_af3_*` | AF3 纳米抗体–靶蛋白（排名 / 3D，Module 4） |
-| `fig_pe_mmgbsa_*` / `fig_pe_residue_*` | MM-GBSA ΔG 排序、ΔG–ipTM、残基拆解（Module 5） |
+| `fig5a`–`fig5d` | CDR / ESM-2 mutation analysis (Module 2) |
+| `fig6a`–`fig6c` | PPI interface and screening funnel (Module 3/6) |
+| `fig_pe_af3_*` | AF3 nanobody–target protein (ranking / 3D, Module 4) |
+| `fig_pe_mmgbsa_*` / `fig_pe_residue_*` | MM-GBSA ΔG ranking, ΔG–ipTM, residue decomposition (Module 5) |
 
 ---
 
-## 5. 跨平台交接（Colab → GPU）
+## 5. Cross-Platform Handoff (Colab → GPU)
 
 ```text
-Colab Module 0–4 完成（含 AF3 解析）
+Colab Module 0–4 complete (including AF3 parsing)
     ↓ export_for_local_sync() / git pull
-GPU 实例（omniscreen-md + CUDA）
-    ↓ Module 5（scripts/pe_module5_mmgbsa.py）
+GPU instance (omniscreen-md + CUDA)
+    ↓ Module 5 (scripts/pe_module5_mmgbsa.py)
 ppi_mmgbsa_summary.csv + ppi_energy_decomposition.csv
-    ↓ Module 6 汇总可视化
+    ↓ Module 6 aggregate visualization
 figures/fig_pe_mmgbsa_*.png
 ```
 
-**交接文件清单**（Module 4 → 5）：
+**Handoff file checklist** (Module 4 → 5):
 
-| 文件 | 必需 |
+| File | Required |
 |------|------|
 | `data/screened_results/af3_pe_metrics.csv` | ✅ |
 | `data/screened_results/af3_pe_complexes/*_best.cif` | ✅ |
-| `data/screened_results/mutation_scores.csv` | 推荐（合并 ESM） |
-| `data/screened_results/ppi_docking_scores.csv` | 推荐（合并 PPI） |
+| `data/screened_results/mutation_scores.csv` | Recommended (merge ESM) |
+| `data/screened_results/ppi_docking_scores.csv` | Recommended (merge PPI) |
 | `scripts/pe_module5_mmgbsa.py` | ✅ |
-| CUDA OpenMM 环境 | ✅（如 `/venv/omniscreen-md`） |
+| CUDA OpenMM environment | ✅ (e.g. `/venv/omniscreen-md`) |
 
 ---
 
-## 6. 常见问题
+## 6. FAQ
 
-| 问题 | 原因 | 解决 |
+| Issue | Cause | Solution |
 |------|------|------|
-| `No module named 'openfold'` | CPU 上强行加载 ESMFold | 保持 `USE_ESMFOLD_ON_CPU = False`，使用 extended-CA |
-| `PDB 中未找到 CA 原子` | extended-CA PDB 残基名为单字母 | 已修复：使用三字母残基名（ALA 等） |
-| Module 4 找不到结果 | zip 未解压到约定路径 | 解压到 `af3_server/pe/pe_cdr3_*_pdl1/` |
-| AF3 ipTM 全部偏低 | 短 PD-L1 片段 / 界面难预测 | 作相对排序；可换更长 PD-L1 胞外域再跑 |
-| `CUDA_ERROR_UNSUPPORTED_PTX_VERSION` | OpenMM CUDA 构建与驱动不匹配 | 使用 conda-forge `openmm` + `cuda-version=12` |
-| Module 5 `assert CUDA` 失败 | 内核未选 GPU 环境 | 选择 `omniscreen-md` / `.venv` 解释器 |
-| `mutation_scores.csv` 不存在 | 未跑 Module 2 | 先完成 Module 2 |
-| Colab Secrets 读不到 token | MCP 内核与浏览器 Colab 非同一进程 | CSV 用小文件同步；PNG 用临时文件床；GitHub push 需在正确内核手动注入 token |
-| Module 2 很慢 | ESM-2 在 CPU 上推理 | 切换 Colab GPU 运行时 |
-| 图在本地找不到 | 未执行同步 | 运行 Module 6 后通过 Agent 下载 `figures/` |
+| `No module named 'openfold'` | Forcing ESMFold load on CPU | Keep `USE_ESMFOLD_ON_CPU = False`, use extended-CA |
+| `No CA atoms found in PDB` | extended-CA PDB residue names were single letter | Fixed: use three-letter residue names (ALA etc.) |
+| Module 4 cannot find results | zip not extracted to expected path | Extract to `af3_server/pe/pe_cdr3_*_pdl1/` |
+| AF3 ipTM all low | Short PD-L1 fragment / difficult interface prediction | Use for relative ranking; try longer PD-L1 extracellular domain |
+| `CUDA_ERROR_UNSUPPORTED_PTX_VERSION` | OpenMM CUDA build mismatched with driver | Use conda-forge `openmm` + `cuda-version=12` |
+| Module 5 `assert CUDA` fails | Kernel not using GPU environment | Select `omniscreen-md` / `.venv` interpreter |
+| `mutation_scores.csv` missing | Module 2 not run | Complete Module 2 first |
+| Colab Secrets cannot read token | MCP kernel and browser Colab are different processes | Sync CSV via small files; PNG via temp file staging; GitHub push needs manual token injection in correct kernel |
+| Module 2 very slow | ESM-2 inference on CPU | Switch Colab GPU runtime |
+| Figures not found locally | Sync not executed | After Module 6, download `figures/` via Agent |
 
 ---
 
-## 7. 术语表
+## 7. Glossary
 
-| 术语 | 解释 |
+| Term | Definition |
 |------|------|
-| **VHH / 纳米抗体** | 骆驼科重链抗体的可变区，约 15 kDa |
-| **CDR** | Complementarity Determining Region，抗体互补决定区 |
-| **ESM-2 ΔLL** | 突变序列相对野生型的平均 log-likelihood 差，越高表示序列越「合理」 |
-| **DMS 热图** | Deep Mutational Scanning 风格位点×氨基酸效应矩阵 |
-| **extended-CA** | 沿序列延伸的 Cα 链占位模型，仅用于流程测试 |
-| **热点残基** | PPI 界面中对结合自由能贡献大的残基 |
-| **ipTM** | AF3 的界面预测 TM-score，评估复合物置信度 |
-| **MM-GBSA** | 分子力学/广义 Born 表面积，结合自由能估算方法 |
-| **GBn2** | OpenMM 隐式溶剂模型之一，用于 Module 5 单点 ΔG |
+| **VHH / Nanobody** | Camelid heavy-chain antibody variable domain, ~15 kDa |
+| **CDR** | Complementarity Determining Region |
+| **ESM-2 ΔLL** | Average log-likelihood difference of mutant vs wild-type; higher indicates more "reasonable" sequence |
+| **DMS heatmap** | Deep Mutational Scanning-style position×amino acid effect matrix |
+| **extended-CA** | Cα chain placeholder model extended along sequence, for workflow testing only |
+| **Hotspot residue** | PPI interface residue with large binding free energy contribution |
+| **ipTM** | AF3 interface predicted TM-score, assesses complex confidence |
+| **MM-GBSA** | Molecular Mechanics/Generalized Born Surface Area binding free energy estimation |
+| **GBn2** | OpenMM implicit solvent model used for Module 5 single-point ΔG |
 
 ---
 
-## 8. 参考文献
+## 8. References
 
 - ESM-2: Lin et al. *Science* **374**, 1427–1431 (2021). https://github.com/facebookresearch/esm
 - ESMFold: Lin et al. *Science* **379**, 1123–1130 (2023).
 - AlphaFold 3: Abramson et al. *Nature* (2024). https://alphafoldserver.com
 - OpenMM: Eastman et al. *J. Phys. Chem. B* (2017). https://openmm.org
 - PDB 4ZQK: PD-1 / PD-L1 complex (Zak et al., *PNAS* 2015).
-- KN035 纳米抗体: 文献常用 PD-L1 靶向 VHH 骨架（见项目种子注释）。
+- KN035 nanobody: Commonly used PD-L1-targeting VHH scaffold in literature (see project seed annotations).
 - HDOCK: Yan et al. *Bioinformatics* **36**, 120–126 (2020).
-- MM-GBSA / 残基分解: Genheden & Ryde, *Expert Opin. Drug Discov.* (2015).
+- MM-GBSA / residue decomposition: Genheden & Ryde, *Expert Opin. Drug Discov.* (2015).
 
 ---
 
-## 9. 与 SM / NA 线路的关系
+## 9. Relationship to SM / NA Pipelines
 
-OmniScreen-AI 在 **同一 PD-L1 靶点** 上并行三条模态流水线：
+OmniScreen-AI runs three modality pipelines in parallel on the **same PD-L1 target**:
 
-| 线路 | 模态 | 候选空间 | 文档 |
+| Pipeline | Modality | Candidate space | Documentation |
 |------|------|----------|------|
-| **SM** | 小分子 | SMILES / 化学空间 | [SM_MODULES.md](./SM_MODULES.md) |
-| **PE** | 蛋白/多肽 | 氨基酸序列 / CDR | 本文档 |
-| **NA** | 核酸 | siRNA / Aptamer 序列 | [NA_MODULES.md](./NA_MODULES.md) |
+| **SM** | Small molecule | SMILES / chemical space | [SM_MODULES.md](./SM_MODULES.md) |
+| **PE** | Protein/peptide | Amino acid sequence / CDR | This document |
+| **NA** | Nucleic acid | siRNA / Aptamer sequence | [NA_MODULES.md](./NA_MODULES.md) |
 
-三条线路共享 `data/receptor/` 下的 PD-L1 结构资源，但筛选逻辑、输出 CSV 与可视化图号独立（SM 用 fig3/fig4，PE 用 fig5/fig6/fig_pe_*）。
+All three pipelines share PD-L1 structure resources under `data/receptor/`, but screening logic, output CSVs, and visualization figure numbers are independent (SM uses fig3/fig4, PE uses fig5/fig6/fig_pe_*).
 
 ---
 
-*文档版本：2026-07 · Module 0–6 已实现 · Module 5 = OpenMM MM-GBSA（CUDA）*
+*Document version: 2026-07 · Module 0–6 implemented · Module 5 = OpenMM MM-GBSA (CUDA)*

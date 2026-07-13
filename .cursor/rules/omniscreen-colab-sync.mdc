@@ -1,34 +1,34 @@
 ---
-description: Colab 运行后自动将 data/ 结果写回本地项目目录
+description: After Colab runs, automatically write data/ results back to the local project directory
 globs: notebooks/**/*.ipynb
 alwaysApply: true
 ---
 
-# OmniScreen Colab → 本地同步规则
+# OmniScreen Colab → Local Sync Rules
 
-本项目使用 **Cursor + Colab 内核** 运行 notebook。Colab 在云端执行，无法直接写入本地磁盘。
+This project uses **Cursor + Colab kernel** to run notebooks. Colab executes in the cloud and cannot write directly to local disk.
 
-## 每次 `notebook_run_cell` 之后必须执行
+## Must run after every `notebook_run_cell`
 
-1. 检查 cell 输出是否包含 `__OMNISCREEN_SYNC_START__` 标记
-2. 若有，运行同步脚本写回本地：
+1. Check whether cell output contains the `__OMNISCREEN_SYNC_START__` marker
+2. If present, run the sync script to write back locally:
 
 ```bash
 python3 .cursor/colab_sync.py <(echo 'OUTPUT') /Users/schmit/Documents/OmniScreen-AI
 ```
 
-或解析 MCP `notebook_run_cell` 返回的 markdown 文本，调用 `.cursor/colab_sync.py` 的逻辑写入 `data/`。
+Or parse the markdown text returned by MCP `notebook_run_cell` and use `.cursor/colab_sync.py` logic to write into `data/`.
 
-3. 同步完成后向用户确认写入了哪些文件
+3. After sync, confirm to the user which files were written
 
-## 若模块未自动 export
+## If the module did not auto-export
 
-运行 notebook 中任意包含 `export_for_local_sync()` 的 cell，或执行：
+Run any cell containing `export_for_local_sync()` in the notebook, or execute:
 
 ```python
-export_for_local_sync()  # 导出全部 data/ 下文件
+export_for_local_sync()  # Export all files under data/
 ```
 
-## 本地目标路径
+## Local target path
 
 `/Users/schmit/Documents/OmniScreen-AI/data/`

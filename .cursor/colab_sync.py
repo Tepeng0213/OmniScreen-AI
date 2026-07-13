@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""将 Colab notebook 输出的同步标记写回本地 OmniScreen-AI 项目目录。"""
+"""Write Colab notebook sync markers back to the local OmniScreen-AI project directory."""
 from __future__ import annotations
 
 import base64
