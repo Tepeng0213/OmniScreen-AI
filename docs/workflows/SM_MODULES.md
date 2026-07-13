@@ -2,7 +2,7 @@
 
 > **Notebook**：[`notebooks/OmniScreen_SM_Workflow.ipynb`](../../notebooks/OmniScreen_SM_Workflow.ipynb)  
 > **靶点**：PD-L1 (CD274)  
-> **当前进度**：Module 0–3 ✅ · Module 6 可视化 ✅ · Module 4–5 规划中
+> **当前进度**：Module 0–6 ✅（Module 4–5 = OpenMM MD + MM/GBSA / CUDA）
 
 ---
 
@@ -45,19 +45,22 @@ flowchart LR
         M0 --> M1 --> M2 --> M3
     end
 
-    subgraph M4_5["Module 4–5（RunPod GPU）🔜"]
+    subgraph M4_5["Module 4–5（GPU）✅"]
         M4[Module 4<br/>OpenMM MD]
-        M5[Module 5<br/>MM/PBSA]
+        M5[Module 5<br/>MM/GBSA]
         M3 --> M4 --> M5
     end
 
-    subgraph M6["Module 6（Colab CPU）✅"]
+    subgraph M6b["Module 6（Colab CPU）✅"]
         M6[可视化 & 结果导出]
         M2 --> M6
         M3 --> M6
+        M4 --> M6
+        M5 --> M6
     end
 
-    M3 -.->|top10_ligands.sdf| M4
+    M3 -.->|Top-N SMILES + 5N2F| M4
+    M4 -.->|trajectory.dcd| M5
 ```
 
 **筛选逻辑（漏斗）**：
@@ -66,7 +69,8 @@ flowchart LR
 |------|----------|----------|
 | Module 2 | 无效 SMILES、Lipinski 违规、PAINS 子结构、可旋转键过多 | `passed_filter == True` |
 | Module 3 | 配体准备失败、Vina 运行失败 | `status == ok`，按 `vina_score` 排序 |
-| Module 4–5（规划） | 轨迹不稳定、结合自由能无优势 | RMSD / ΔG 阈值（待定义） |
+| Module 4 | 配体 RMSD 过大、体系爆炸 | Demo 段配体 RMSD 通常 < 1 Å 可接受 |
+| Module 5 | ΔG 无优势 / 能量异常离群 | `dG_bind_kcalmol_mean` 越负越好；排除明显离群值 |
 
 ### 1.3 技术栈一览
 
@@ -76,9 +80,9 @@ flowchart LR
 | 分子对接 | AutoDock Vina + Open Babel | 受体/配体 PDBQT、刚性对接打分 |
 | 机器学习 / 降维 | scikit-learn、t-SNE、UMAP | 化学空间可视化（Module 6） |
 | 结构可视化 | py3Dmol、matplotlib、seaborn | 3D 姿态、统计图 |
-| 动力学（规划） | OpenMM | MD 模拟 |
-| 自由能（规划） | MM/PBSA | 结合亲和力估算 |
-| 运行环境 | Google Colab（CPU）、RunPod（GPU） | 算力分层 |
+| 动力学 | OpenMM + OpenFF + mdtraj | 显式溶剂 MD、RMSD |
+| 自由能 | OpenMM MM/GBSA（Amber14 + GBn2） | 轨迹帧平均 ΔG + 残基 VDW/ELE |
+| 运行环境 | Google Colab（CPU）、Vast/RunPod GPU | 算力分层 |
 | 协作 | GitHub + Cursor Agent 同步 | 云端结果写回本地 |
 
 ### 1.4 应用场景与可扩展方向
@@ -100,6 +104,8 @@ flowchart LR
 - **漏检（false negative）**：配体准备失败、刚性对接与 Top-N 截断均可能淘汰潜在好分子；详见 [README — 方案局限与漏检](../../README.md#方案局限与漏检)。
 - **测试库规模**：当前正式库约 **2,300+** 条 ChEMBL 化合物（含 5 个种子参照），Module 3 对接 Top **250**；可按 `SM_CONFIG` 调整上限。
 - **对接盒子**：以共晶配体 **8HW** 几何中心定义，换靶点或变构位点需重新标定。
+- **Module 4 为 Demo 短轨迹**：当前生产段 **200 ps**（NVT/NPT 各 25 ps），用于验证流水线；**非 50 ns 生产级 MD**。仓库无对接姿态 `pdbqt` 时，配体置于 8HW 口袋中心再溶剂化。
+- **Module 5 MM/GBSA 为隐式溶剂估算**：对 MD 抽样帧做 `E(complex)−E(receptor)−E(ligand)`；残基拆解为配对 VDW+ELE，**非实验 Kd**。`CHEMBL273264_div` 出现极大正 ΔG，视为离群，不宜进入候选。
 
 ---
 
@@ -113,7 +119,7 @@ flowchart LR
 | **本地** | Python 3.10+，RDKit；Module 3 需系统安装 `vina` 与 `obabel` |
 | **可选** | [Notebook MCP](https://marketplace.visualstudio.com/items?itemName=olavovieiradecarvalho.notebook-mcp-server) 供 Agent 自动执行 cell |
 
-### 2.2 推荐运行顺序（Module 0–3）
+### 2.2 推荐运行顺序（Module 0–6）
 
 ```
 Module 0  →  安装依赖 cell  →  （可选）GitHub Token cell
@@ -124,20 +130,31 @@ Module 2  →  生成 chemical_space_props.csv
     ↓
 Module 3  →  生成 docking_scores.csv（耗时最长，Top-250 对接约 1–3 h）
     ↓
-Module 6  →  生成 figures/ 下全部 PNG
+Module 4  →  OpenMM 显式溶剂 MD（Top-5 Demo，CUDA，约 3–5 min / 配体）
+    ↓
+Module 5  →  MM/GBSA → mmpbsa_results.csv + 能量图（CUDA，约 1 min / 配体）
+    ↓
+Module 6  →  生成 figures/ 下全部 PNG（含 fig_sm_md_* / fig_sm_mmpbsa_*）
 ```
+
+> **注意**：Module 4–5 需 CUDA 可用的 OpenMM 环境（如 `omniscreen-md` / A100）。脚本：`scripts/sm_module4_md.py`、`scripts/sm_module5_mmpbsa.py`。
 
 ### 2.3 输出目录
 
 ```
 data/
-├── receptor/5N2F.pdb              # Module 1
+├── receptor/5N2F.pdb                 # Module 1
 ├── raw_libraries/initial_compounds.smi
 └── screened_results/
-    ├── chemical_space_props.csv   # Module 2
-    ├── docking_scores.csv         # Module 3
-    ├── docking/*.pdbqt            # Module 3 对接姿态
-    └── figures/*.png, fig_3d_binding_pose.html   # Module 6
+    ├── chemical_space_props.csv      # Module 2
+    ├── docking_scores.csv            # Module 3
+    ├── docking/*.pdbqt               # Module 3 对接姿态（可选）
+    ├── top10_ligands.sdf             # Module 4
+    ├── md_rmsd.csv                   # Module 4
+    ├── md/<mol_id>/trajectory.dcd    # Module 4（不入 Git）
+    ├── mmpbsa_results.csv            # Module 5
+    ├── mmpbsa_residue_decomposition.csv
+    └── figures/                      # Module 6（fig3*/fig4*/fig_sm_*）
 ```
 
 详见 [`data/screened_results/README.md`](../../data/screened_results/README.md)。
@@ -429,41 +446,215 @@ ligand + receptor  →  AutoDock Vina  →  vina_score + out.pdbqt
 
 ---
 
-### Module 4 — OpenMM 分子动力学（规划中）
+### Module 4 — OpenMM 分子动力学
 
-**目的**：在显式溶剂中对 Top 对接复合物进行纳秒级 MD，验证结合姿态稳定性，观察关键相互作用。
+**目的**：对 Vina Top 配体在 PD-L1（5N2F）结合口袋做显式溶剂短时 MD，检验配体相对初始姿态的稳定性（RMSD），并为 Module 5 提供轨迹。
 
-**前置依赖**：Module 3（`top10_ligands.sdf` 或对接 PDBQT）。
+**前置依赖**：Module 3（`docking_scores.csv`）；`data/receptor/5N2F.pdb`；CUDA 可用的 OpenMM + OpenFF 环境。
 
-**预期输入**：Top N 配体-受体复合物、力场参数（AMBER / OpenFF）。
+**输入**：
 
-**预期输出**：`md_rmsd.csv`、轨迹文件（`.dcd`，不纳入 Git）。
+| 文件 | 说明 |
+|------|------|
+| `docking_scores.csv` | 按 `vina_score` 取 Top-N（默认 5） |
+| `data/receptor/5N2F.pdb` | 受体；口袋中心取共晶配体 **8HW** COM |
 
-**算力**：**RunPod GPU**（推荐 A100 / RTX 4090），单体系 10–50 ns 约 1–4 小时。
+**方法**：
 
-**可迁移场景**：蛋白-配体、蛋白-蛋白任意复合物 MD 验证流程。
+```text
+Top-N SMILES
+  → RDKit ETKDG + MMFF 生成 3D，平移至 8HW 口袋中心
+  → PDBFixer 准备蛋白 + OpenFF（Gasteiger 电荷）参数化配体
+  → Amber14 / tip3p 显式溶剂（padding 1.0 nm，0.15 M 离子）
+  → 最小化 → NVT → NPT → 生产 MD（CUDA）
+  → mdtraj 计算配体重原子 RMSD → CSV + 曲线图
+```
+
+脚本入口：[`scripts/sm_module4_md.py`](../../scripts/sm_module4_md.py)。Notebook Module 4 cell 调用该脚本；已有 `md_rmsd.csv` 时默认跳过（`FORCE_RERUN=1` 强制重跑）。
+
+**关键参数**：
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--top-n` | 5 | 参与 MD 的 Vina Top 配体数 |
+| `--nvt-ps` / `--npt-ps` | 25 / 25 | 平衡段（ps） |
+| `--prod-ps` | 200 | **Demo** 生产段；生产环境可改为 10000–50000 |
+| `--report-ps` | 10 | 轨迹 / RMSD 采样间隔 |
+| 力场 | Amber14 + tip3p + OpenFF-2.1.0 | 蛋白 / 水 / 配体 |
+| 平台 | CUDA（`Precision=mixed`） | A100 等 |
+
+**输出**：
+
+| 文件 | 说明 |
+|------|------|
+| `top10_ligands.sdf` | Top-10 配体 3D（交接用） |
+| `md_rmsd.csv` | 各配体 RMSD 汇总 |
+| `md_rmsd_timeseries.csv` | 逐帧 RMSD |
+| `md/<mol_id>/trajectory.dcd` | 轨迹（**gitignore，不入 Git**） |
+| `md/<mol_id>/topology.pdb` / `complex_min.pdb` | 拓扑与最小化结构 |
+| `md/<mol_id>/md_meta.json` | 原子索引与运行元数据 |
+| `figures/fig_sm_md_rmsd.png` | 配体 RMSD 曲线 |
+
+**判定标准**：
+- 生产段配体 RMSD 通常 **< 1 Å** 视为 Demo 尺度下相对稳定
+- 体系能量爆炸 / 无法最小化 → 剔除该配体
+
+**当前运行结果（Top-5 Demo，A100 CUDA）**：
+
+| 化合物 | Vina | RMSD mean (Å) | RMSD final (Å) |
+|--------|------|---------------|----------------|
+| **CHEMBL19019_div** | **−7.43** | **0.27** | 0.26 |
+| CHEMBL428690_div | −6.86 | 0.34 | 0.74 |
+| CHEMBL273264_div | −6.33 | 0.26 | 0.29 |
+| CHEMBL34259_div | −5.85 | 0.52 | 0.48 |
+| CHEMBL406_div | −5.84 | 0.45 | 0.52 |
+
+**算力**：CUDA GPU（推荐 A100），约 **3–5 分钟 / 配体**（含参数化与 250 ps 总模拟）；Top-5 约 **15–25 分钟**。
+
+**可迁移场景**：
+- **拉长轨迹**：增大 `--prod-ps` 至 10–50 ns
+- **使用真实对接姿态**：有 `docking/*_out.pdbqt` 时改为从姿态构建复合物
+- **换靶点**：替换受体 PDB 与口袋中心定义
+
+#### 结果解读（Module 4 可视化）
+
+##### 图 SM-MD — 配体 RMSD 曲线
+
+![图 SM-MD：配体 RMSD](../../data/screened_results/figures/fig_sm_md_rmsd.png)
+
+| 项目 | 说明 |
+|------|------|
+| **图意** | 生产段各配体重原子 RMSD（相对第 1 帧）随时间变化 |
+| **读图要点** | 曲线平稳且 < 1 Å 说明 Demo 尺度下姿态未大幅漂移 |
+| **本数据结论** | Top-5 均值 RMSD 均 < 0.6 Å；**CHEMBL19019_div** 最稳（~0.27 Å） |
+| **含义与局限** | 200 ps 不足以证明纳秒级结合；口袋中心放置 ≠ 最优对接姿态 |
 
 ---
 
-### Module 5 — MM/PBSA 结合自由能（规划中）
+### Module 5 — MM/GBSA 结合自由能
 
-**目的**：基于 Module 4 轨迹，估算结合自由能 ΔG_bind，提供比 Vina score 更接近热力学意义的排序。
+**目的**：基于 Module 4 轨迹抽样帧，用 OpenMM MM/GBSA 估算 ΔG_bind，并对受体残基做 VDW/ELE 贡献拆解，给出比 Vina 更接近热力学意义的相对排序。
 
-**前置依赖**：Module 4 轨迹。
+**前置依赖**：Module 4（`md_rmsd.csv` + `md/<mol_id>/trajectory.dcd`）；CUDA OpenMM。
 
-**预期输出**：`mmpbsa_results.csv`
+**输入**：
 
-**算力**：RunPod GPU。
+| 文件 | 说明 |
+|------|------|
+| `md_rmsd.csv` | 待分析配体列表 |
+| `md/<mol_id>/trajectory.dcd` + `topology.pdb` | 显式溶剂轨迹 |
+| `md/<mol_id>/md_meta.json` | 蛋白/配体原子索引与 SMILES |
+
+**方法**：
+
+```text
+MD 轨迹抽样帧（默认 5 帧）
+  → 取蛋白 + 配体坐标（去溶剂）
+  → Amber14 + GBn2 + OpenFF 配体重建干复合物
+  → ΔG ≈ E(complex) − E(receptor) − E(ligand)
+  → 帧平均 / 标准差；末帧残基配对 VDW+ELE 拆解
+  → CSV + 排序图 / 残基贡献图
+```
+
+脚本入口：[`scripts/sm_module5_mmpbsa.py`](../../scripts/sm_module5_mmpbsa.py)。已有 `mmpbsa_results.csv` 时默认跳过（`FORCE_RERUN=1` 重跑）。
+
+**关键参数**：
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--n-frames` | 5 | 均匀抽样帧数 |
+| 力场 | `amber14-all.xml` + `implicit/gbn2.xml` + OpenFF-2.1.0 | 隐式溶剂 GBSA |
+| 非键 | `NoCutoff` | 隐式溶剂要求 |
+| 残基拆解 | 配对 Coulomb + LJ（≤1.2 nm） | 受体残基对配体 |
+
+**输出**：
+
+| 文件 | 说明 |
+|------|------|
+| `mmpbsa_results.csv` | 各配体平均 ΔG ± std + Vina / RMSD |
+| `mmpbsa_frame_energies.csv` | 逐帧能量 |
+| `mmpbsa_residue_decomposition.csv` | 受体残基 VDW/ELE |
+| `figures/fig_sm_mmpbsa_ranking.png` | ΔG 排序 |
+| `figures/fig_sm_mmpbsa_residue.png` | Top 配体残基贡献 |
+
+**判定标准**：
+- **`dG_bind_kcalmol_mean` 越负越好**
+- 明显正值 / 极大离群（如数百 kcal/mol）→ 标记异常，不进入候选
+- 建议与 Module 3 Vina、Module 4 RMSD 联读
+
+**当前运行结果（5 配体 × 5 帧，A100）**：
+
+| 排名 | 化合物 | ΔG mean ± std (kcal/mol) | Vina | RMSD mean |
+|------|--------|--------------------------|------|-----------|
+| 1 | **CHEMBL34259_div** | **−54.2 ± 1.1** | −5.85 | 0.52 |
+| 2 | CHEMBL19019_div | −49.9 ± 1.7 | −7.43 | 0.27 |
+| 3 | CHEMBL406_div | −48.4 ± 2.5 | −5.84 | 0.45 |
+| 4 | CHEMBL428690_div | −47.2 ± 1.6 | −6.86 | 0.34 |
+| 5 | CHEMBL273264_div | **+452 ± 13（离群）** | −6.33 | 0.26 |
+
+**算力**：CUDA GPU，约 **~1 分钟 / 配体**；Top-5 约 **5–8 分钟**。
+
+**可迁移场景**：
+- **更多帧 / 更长轨迹**：增大 `--n-frames` 或先延长 Module 4
+- **换力场 / 电荷**：OpenFF 版本或 AM1-BCC（更准但更慢）
+- **与 Vina 共识筛选**：取 Vina Top ∩ MM/GBSA Top 的交集
+
+#### 结果解读（Module 5 可视化）
+
+##### 图 SM-GBSA — MM/GBSA ΔG 排序
+
+![图 SM-GBSA：ΔG 排序](../../data/screened_results/figures/fig_sm_mmpbsa_ranking.png)
+
+| 项目 | 说明 |
+|------|------|
+| **图意** | 各配体平均 ΔG（误差棒 = 帧间 std），越负越好 |
+| **读图要点** | 与 Vina 排名可能不一致；极大正值多为数值/姿态异常 |
+| **本数据结论** | **CHEMBL34259_div（−54.2）** 能量最优；CHEMBL19019_div（Vina Top1）排名第 2；CHEMBL273264 为离群 |
+| **含义与局限** | Demo 口袋放置 + 短轨迹下的相对排序；不可直接当实验亲和力 |
+
+##### 图 SM-GBSA — 残基能量拆解
+
+![图 SM-GBSA：残基贡献](../../data/screened_results/figures/fig_sm_mmpbsa_residue.png)
+
+| 项目 | 说明 |
+|------|------|
+| **图意** | Top 配体（能量最优）对受体残基的 VDW+ELE 贡献（kcal/mol） |
+| **读图要点** | 越负表示该残基与配体吸引越强；用于热点残基假设 |
+| **本数据结论** | 展示 Top 排序配体的口袋接触残基贡献谱 |
+| **含义与局限** | 不含完整 GB 分摊；宜作定性热点提示 |
 
 ---
 
 ### Module 6 — 可视化与结果导出
 
-**目的**：将 Module 2–3 的数据汇总为发表级图表，支持本地同步与 GitHub 备份。
+**目的**：将 Module 2–5 数据汇总为发表级图表，支持本地同步与 GitHub 备份。
 
-**前置依赖**：Module 6.0 需先成功加载 `chemical_space_props.csv` 与 `docking_scores.csv`（即 Module 2–3 已跑完）。
+**前置依赖**：Module 6.0 需加载 `chemical_space_props.csv` 与 `docking_scores.csv`；Module 4–5 图由对应脚本直接写出，Module 6 负责集中归档与展示。
 
 **输出目录**：`data/screened_results/figures/`
+
+**图号总览**：
+
+```mermaid
+flowchart TB
+    subgraph M2["Module 2 数据"]
+        F3[fig3a–3e / Lipinski]
+    end
+    subgraph M3["Module 3 数据"]
+        F4[fig4a–4d / 2D / 3D 姿态]
+    end
+    subgraph M4["Module 4 ✅"]
+        Fmd[fig_sm_md_rmsd]
+    end
+    subgraph M5["Module 5 ✅"]
+        Fgbsa[fig_sm_mmpbsa_ranking]
+        Fres[fig_sm_mmpbsa_residue]
+    end
+    M2 --> F3
+    M3 --> F4
+    M4 --> Fmd
+    M5 --> Fgbsa & Fres
+```
 
 **图号与数据归属**：
 
@@ -474,6 +665,8 @@ ligand + receptor  →  AutoDock Vina  →  vina_score + out.pdbqt
 | 扩展 | `fig_ext_chem_tsne_umap.png` | Module 2+3 融合 |
 | 结构 | `fig_top5_*`, `fig_ligand_grid_2d.png` | Module 3 Top 5 |
 | 3D | `fig_binding_pocket_schematic.png`, `fig_3d_binding_pose.*` | Module 1+3 |
+| SM-MD | `fig_sm_md_rmsd.png` | Module 4 → 见 [Module 4](#结果解读module-4-可视化) |
+| SM-GBSA | `fig_sm_mmpbsa_*.png` | Module 5 → 见 [Module 5](#结果解读module-5-可视化) |
 
 #### 结果解读（Module 6 综合可视化）
 
@@ -496,7 +689,7 @@ ligand + receptor  →  AutoDock Vina  →  vina_score + out.pdbqt
 |------|------|
 | **图意** | 对接得分 Top 5 分子的 2D 结构式，标注 vina_score |
 | **本数据结论** | Top 5 为不同 ChEMBL 化合物，结构多样性良好；最优 **CHEMBL19019_div（-7.43 kcal/mol）** |
-| **含义与局限** | 对接得分需结合 3D 姿态与 MD 验证 |
+| **含义与局限** | 对接得分需结合 3D 姿态与 MD / MM-GBSA 验证 |
 
 ##### 配体结构网格
 
@@ -524,7 +717,7 @@ ligand + receptor  →  AutoDock Vina  →  vina_score + out.pdbqt
 |------|------|
 | **图意** | py3Dmol 渲染的 Top 1 配体（CHEMBL19019_div）在 PD-L1 口袋中的 3D 姿态 |
 | **交互版** | 打开 `fig_3d_binding_pose.html` 可在浏览器中旋转、缩放 |
-| **含义与局限** | 静态姿态；需 Module 4 MD 确认是否保持结合 |
+| **含义与局限** | 静态姿态；动力学稳定性见 Module 4 RMSD，自由能见 Module 5 |
 
 ---
 
@@ -556,7 +749,33 @@ ligand + receptor  →  AutoDock Vina  →  vina_score + out.pdbqt
 | `vina_score` | float | AutoDock Vina 对接分数 (kcal/mol)，**越低越好** |
 | `status` | str | `ok` / `ligand_prep_failed` / `vina_failed` |
 
-### 4.3 图文件命名规范
+### 4.3 `md_rmsd.csv`（Module 4）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| `mol_id` | str | 分子标识符 |
+| `smiles` | str | SMILES |
+| `vina_score` | float | Module 3 对接分 |
+| `n_atoms_solvated` | int | 溶剂化体系原子数 |
+| `n_protein_atoms` / `n_ligand_atoms` | int | 干蛋白 / 配体原子数 |
+| `nvt_ps` / `npt_ps` / `prod_ps` | float | 各阶段时长（ps） |
+| `ligand_rmsd_mean_A` | float | 生产段平均 RMSD（Å） |
+| `ligand_rmsd_final_A` | float | 末帧 RMSD（Å） |
+| `trajectory` / `topology` | str | 相对路径 |
+
+### 4.4 `mmpbsa_results.csv`（Module 5）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| `mol_id` | str | 分子标识符 |
+| `vina_score` | float | Module 3 对接分 |
+| `ligand_rmsd_mean_A` | float | Module 4 平均 RMSD |
+| `n_frames` | int | GBSA 抽样帧数 |
+| `dG_bind_kcalmol_mean` | float | 平均 ΔG（kcal/mol），**越负越好** |
+| `dG_bind_kcalmol_std` | float | 帧间标准差 |
+| `dG_bind_kJmol_mean` | float | 平均 ΔG（kJ/mol） |
+
+### 4.5 图文件命名规范
 
 | 前缀 | 含义 |
 |------|------|
@@ -566,6 +785,8 @@ ligand + receptor  →  AutoDock Vina  →  vina_score + out.pdbqt
 | `fig_ext_*` | 扩展分析图 |
 | `fig_top5_*`, `fig_ligand_*` | 结构图 |
 | `fig_3d_*`, `fig_binding_*` | 3D / 口袋图 |
+| `fig_sm_md_*` | Module 4 MD RMSD |
+| `fig_sm_mmpbsa_*` | Module 5 MM/GBSA |
 
 ---
 
@@ -576,9 +797,9 @@ Colab Module 0–3 完成
     ↓ export_for_local_sync() 或 git push
 本地 data/ 或 GitHub
     ↓ git clone / pull
-RunPod 实例
-    ↓ 运行 Module 4–5
-MD 轨迹 & MM/PBSA 结果
+GPU 实例（Vast / RunPod）
+    ↓ 运行 Module 4–5（omniscreen-md）
+MD 轨迹 & MM/GBSA 结果 → git push（不含 *.dcd）
 ```
 
 **交接文件清单**（Module 3 → 4）：
@@ -587,8 +808,16 @@ MD 轨迹 & MM/PBSA 结果
 |------|------|
 | `data/receptor/5N2F.pdb` | ✅ |
 | `data/screened_results/docking_scores.csv` | ✅ |
-| `data/screened_results/docking/*_out.pdbqt` | ✅（Top N 姿态） |
-| `top10_ligands.sdf` | 🔜 Module 3 扩展输出 |
+| `data/screened_results/docking/*_out.pdbqt` | 可选（有则用真实姿态；无则口袋中心放置） |
+| `top10_ligands.sdf` | Module 4 自动生成 |
+
+**交接文件清单**（Module 4 → 5）：
+
+| 文件 | 必需 |
+|------|------|
+| `md_rmsd.csv` | ✅ |
+| `md/<mol_id>/trajectory.dcd` + `topology.pdb` | ✅ |
+| `md/<mol_id>/md_meta.json` | ✅ |
 
 ---
 
@@ -602,6 +831,9 @@ MD 轨迹 & MM/PBSA 结果
 | Module 3 很慢 | Top-N Vina 串行对接 | 正常；可减小 `SM_CONFIG["max_dock"]` 做快速测试 |
 | Colab 断连 | 会话超时 | 重连内核，从 Module 0 重跑 PATHS |
 | 本地无 Vina | 未安装系统包 | 使用 Colab，或 `brew install autodock-vina open-babel` |
+| Module 4 CUDA PTX 报错 | OpenMM CUDA 构建与驱动不匹配 | 使用 `cuda-version=12` 的 conda OpenMM（见环境准备） |
+| Module 5 ΔG 极大正值 | 姿态冲突 / 电荷异常 | 标记离群；优先看 RMSD 稳定且 ΔG 合理的分子 |
+| 想重跑 MD/GBSA | 已有 CSV 被跳过 | `FORCE_RERUN=1` 后重跑对应 cell / 脚本 |
 
 ---
 
@@ -616,7 +848,7 @@ MD 轨迹 & MM/PBSA 结果
 | **Lipinski 五规则** | 口服类药性经验规则（MW, LogP, HBD, HBA） |
 | **PDBQT** | AutoDock 家族使用的原子类型 + 电荷格式 |
 | **RMSD** | 均方根偏差，衡量 MD 轨迹相对参考结构的偏离 |
-| **MM/PBSA** | 分子力学/泊松-玻尔兹曼表面积，结合自由能计算方法 |
+| **MM/PBSA / MM/GBSA** | 分子力学 + 连续溶剂（PB 或 GB）估算结合自由能 |
 
 ---
 
@@ -631,4 +863,4 @@ MD 轨迹 & MM/PBSA 结果
 
 ---
 
-*文档版本：2026-07 · 对应 Notebook Module 0–3, 6 已实现*
+*文档版本：2026-07 · 对应 Notebook Module 0–6 已实现（含 GPU MD / MM-GBSA）*
