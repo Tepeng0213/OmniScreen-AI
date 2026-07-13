@@ -1,0 +1,19 @@
+{
+  "mol_id": "CHEMBL406_div",
+  "smiles": "CC1Cc2ccccc2N1NC(=O)c1ccc(Cl)c(S(N)(=O)=O)c1",
+  "vina_score": -5.837,
+  "n_atoms_solvated": 52838,
+  "n_protein_atoms": 4004,
+  "n_ligand_atoms": 40,
+  "protein_atom_start": 0,
+  "ligand_atom_start": 4004,
+  "nvt_ps": 25.0,
+  "npt_ps": 25.0,
+  "prod_ps": 200.0,
+  "n_frames": 20,
+  "ligand_rmsd_mean_A": 0.4459001123905182,
+  "ligand_rmsd_final_A": 0.5157572627067566,
+  "ligand_rmsd_max_A": 0.7026472687721252,
+  "trajectory": "data/screened_results/md/CHEMBL406_div/trajectory.dcd",
+  "topology": "data/screened_results/md/CHEMBL406_div/topology.pdb"
+}

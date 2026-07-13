@@ -1,0 +1,19 @@
+{
+  "mol_id": "CHEMBL19019_div",
+  "smiles": "O=C1CC[C@@]2(O)[C@H]3Cc4ccc(O)c5c4[C@@]2(CCN3CC2CC2)[C@H]1O5",
+  "vina_score": -7.426,
+  "n_atoms_solvated": 53122,
+  "n_protein_atoms": 4004,
+  "n_ligand_atoms": 48,
+  "protein_atom_start": 0,
+  "ligand_atom_start": 4004,
+  "nvt_ps": 25.0,
+  "npt_ps": 25.0,
+  "prod_ps": 200.0,
+  "n_frames": 20,
+  "ligand_rmsd_mean_A": 0.2717791497707367,
+  "ligand_rmsd_final_A": 0.26401886343955994,
+  "ligand_rmsd_max_A": 0.4498785138130188,
+  "trajectory": "data/screened_results/md/CHEMBL19019_div/trajectory.dcd",
+  "topology": "data/screened_results/md/CHEMBL19019_div/topology.pdb"
+}
