@@ -17,6 +17,7 @@ def render_complex_png(
     caption: str,
     chain_a_color: str = "skyblue",
     chain_b_color: str = "orange",
+    chain_c_color: str | None = "forest",
     width: int = 1400,
     height: int = 1000,
 ) -> Path:
@@ -36,8 +37,13 @@ def render_complex_png(
     cmd.load(str(cif_path), "cpx")
     cmd.hide("everything")
     cmd.show("cartoon")
+    # Nucleic acids: thicker ribbon + light sticks for duplex visibility
+    cmd.show("sticks", "cpx and (resn A+U+G+C+DA+DT+DG+DC+ADE+URA+GUA+CYT)")
+    cmd.set("stick_radius", 0.15)
     cmd.color(chain_a_color, "cpx and chain A")
     cmd.color(chain_b_color, "cpx and chain B")
+    if chain_c_color:
+        cmd.color(chain_c_color, "cpx and chain C")
     cmd.bg_color("white")
     cmd.set("ray_opaque_background", 1)
     cmd.set("cartoon_fancy_helices", 1)
@@ -73,8 +79,15 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--title", required=True)
     ap.add_argument("--caption", required=True)
+    ap.add_argument("--no-chain-c", action="store_true", help="Skip coloring chain C")
     args = ap.parse_args()
-    path = render_complex_png(Path(args.cif), Path(args.out), title=args.title, caption=args.caption)
+    path = render_complex_png(
+        Path(args.cif),
+        Path(args.out),
+        title=args.title,
+        caption=args.caption,
+        chain_c_color=None if args.no_chain_c else "forest",
+    )
     print(f"Wrote {path}")
 
 

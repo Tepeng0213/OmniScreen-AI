@@ -457,7 +457,7 @@ AF3 Server zip
 | `af3_na_complexes/*_best.cif` | 各 job 最佳模型 |
 | `figures/fig_na_af3_iptm_ranking.png` | ipTM 排名图 |
 | `figures/fig_na_af3_complex.html` | Top1 交互 3D |
-| `figures/fig_na_af3_complex.png` | Top1 指标摘要图 |
+| `figures/fig_na_af3_complex.png` | Top1 复合物 PyMOL cartoon 快照 |
 
 **当前运行结果（最佳模型）**：
 
@@ -488,15 +488,15 @@ AF3 Server zip
 
 ##### 图 NA-AF3 — Top1 复合物 3D
 
-![图 NA-AF3：Top1 摘要](../../data/screened_results/figures/fig_na_af3_complex.png)
+![图 NA-AF3：Top1 复合物](../../data/screened_results/figures/fig_na_af3_complex.png)
 
 | 项目 | 说明 |
 |------|------|
-| **图意** | Top1（`CD274_2332_2352`）指标摘要；交互结构见 HTML |
+| **图意** | Top1（`CD274_2332_2352`）蛋白–siRNA 复合物 PyMOL cartoon；蓝=蛋白(A)，橙/绿=siRNA 双链(B/C) |
 | **交互版** | 打开 [`fig_na_af3_complex.html`](../../data/screened_results/figures/fig_na_af3_complex.html) 可旋转缩放 |
 | **结构文件** | `af3_na_complexes/CD274_2332_2352_best.cif`（model 0） |
 | **本数据结论** | ipTM=0.61，pTM=0.62；蛋白–RNA 界面约 0.57，RNA 双链自身约 0.49 |
-| **含义与局限** | 静态预测结构；需实验验证；勿过度解读为药效证据 |
+| **含义与局限** | 静态预测截图；不宜直接当作实验结合姿态；需实验验证 |
 
 ---
 
